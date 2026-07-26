@@ -22,6 +22,7 @@
     <!-- Version input -->
     <string name="label_sw_version">Phiên bản hệ thống (vd. 16.1.16.5.W10)</string>
     <string name="hint_sw_version">Thư viện mã hóa không hỗ trợ lấy phiên bản cho thiết bị cũ có định dạng x.x.x</string>
+    <string name="custom_version">Tùy chỉnh</string>
     <string name="label_sn">Số seri SN (tùy chọn)</string>
     <string name="label_package_type">Loại gói</string>
     <string name="pkg_full">Gói đầy đủ</string>
@@ -42,6 +43,8 @@
     <string name="update_date">Ngày cập nhật: %1$s</string>
     <string name="btn_download">Tải xuống</string>
     <string name="btn_copy_link">Sao chép liên kết</string>
+    <string name="btn_copy_version">Sao chép phiên bản</string>
+    <string name="btn_copy_changelog">Sao chép nhật ký</string>
     <string name="copied">Đã sao chép</string>
 
     <!-- Changelog -->
@@ -51,6 +54,14 @@
     <!-- History -->
     <string name="history_title">Lịch sử tra cứu (%1$d)</string>
     <string name="btn_clear">Xóa</string>
+    <string name="btn_manage">Quản lý</string>
+    <string name="btn_delete_selected">Xóa (%1$d)</string>
+    <string name="btn_select_all">Chọn tất cả</string>
+    <string name="btn_done">Xong</string>
+    <string name="hint_swipe_delete">Vuốt để xóa</string>
+    <string name="confirm_delete">Xóa bản ghi này?</string>
+    <string name="confirm_delete_multiple">Xóa %1$d bản ghi đã chọn?</string>
+    <string name="btn_cancel">Hủy</string>
     <string name="history_query">Tra cứu: %1$s \u2192 %2$s</string>
     <string name="history_size">Kích thước: %1$s MB</string>
 
@@ -66,4 +77,32 @@
     <string name="toast_success">Tra cứu thành công</string>
     <string name="toast_no_update">Không tìm thấy cập nhật</string>
     <string name="no_changelog">Không có nhật ký cập nhật</string>
+
+    <!-- Payload Dumper -->
+    <string name="payload_dumper">Xem danh sách phân vùng</string>
+    <string name="payload_loading">Đang tải danh sách phân vùng…</string>
+    <string name="parse">Phân tích</string>
+    <string name="error">Lỗi</string>
+    <string name="dismiss">Đóng</string>
+    <string name="rom_info">Thông tin ROM</string>
+    <string name="file_name">Tên tệp</string>
+    <string name="file_size">Kích thước tệp</string>
+    <string name="partition_list">Danh sách phân vùng</string>
+    <string name="partition_size">Kích thước: %1$s</string>
+    <string name="sha256">SHA256: %1$s</string>
+    <string name="extract">Trích xuất</string>
+    <string name="payload_security_patch">Bản vá bảo mật</string>
+    <string name="payload_build_date">Ngày build</string>
+    <string name="payload_package_type">Loại gói</string>
+    <string name="payload_full">Đầy đủ</string>
+    <string name="payload_incremental">Tăng dần</string>
+    <string name="payload_block_size">Kích thước khối</string>
+    <string name="payload_partial_update">Cập nhật một phần</string>
+    <string name="payload_yes">Có</string>
+    <string name="payload_select_all">Chọn tất cả</string>
+    <string name="payload_selected_count">Đã chọn: %1$d</string>
+    <string name="payload_extract_selected">Giải nén đã chọn</string>
+    <string name="payload_extract_success">Giải nén %1$s hoàn tất</string>
+    <string name="payload_extract_failed">Giải nén %1$s thất bại</string>
+    <string name="payload_batch_complete">Hoàn tất: %1$d thành công, %2$d thất bại</string>
 </resources>

@@ -22,6 +22,7 @@
     <!-- Version input -->
     <string name="label_sw_version">시스템 버전 (예: 16.1.16.5.W10)</string>
     <string name="hint_sw_version">암호화 라이브러리는 이전 기기의 x.x.x 형식 버전 조회를 지원하지 않습니다</string>
+    <string name="custom_version">사용자 지정</string>
     <string name="label_sn">SN 일련번호 (선택)</string>
     <string name="label_package_type">패키지 유형</string>
     <string name="pkg_full">전체 패키지</string>
@@ -42,6 +43,8 @@
     <string name="update_date">업데이트 날짜: %1$s</string>
     <string name="btn_download">다운로드</string>
     <string name="btn_copy_link">링크 복사</string>
+    <string name="btn_copy_version">버전 복사</string>
+    <string name="btn_copy_changelog">변경 사항 복사</string>
     <string name="copied">복사됨</string>
 
     <!-- Changelog -->
@@ -51,6 +54,14 @@
     <!-- History -->
     <string name="history_title">조회 기록 (%1$d)</string>
     <string name="btn_clear">삭제</string>
+    <string name="btn_manage">관리</string>
+    <string name="btn_delete_selected">삭제 (%1$d)</string>
+    <string name="btn_select_all">모두 선택</string>
+    <string name="btn_done">완료</string>
+    <string name="hint_swipe_delete">스와이프하여 삭제</string>
+    <string name="confirm_delete">이 기록을 삭제하시겠습니까?</string>
+    <string name="confirm_delete_multiple">선택한 %1$d개 기록을 삭제하시겠습니까?</string>
+    <string name="btn_cancel">취소</string>
     <string name="history_query">조회: %1$s \u2192 %2$s</string>
     <string name="history_size">크기: %1$s MB</string>
 
@@ -66,4 +77,32 @@
     <string name="toast_success">조회 성공</string>
     <string name="toast_no_update">업데이트를 찾을 수 없습니다</string>
     <string name="no_changelog">변경 사항이 없습니다</string>
+
+    <!-- Payload Dumper -->
+    <string name="payload_dumper">파티션 목록 보기</string>
+    <string name="payload_loading">파티션 목록 로드 중…</string>
+    <string name="parse">분석</string>
+    <string name="error">오류</string>
+    <string name="dismiss">닫기</string>
+    <string name="rom_info">ROM 정보</string>
+    <string name="file_name">파일 이름</string>
+    <string name="file_size">파일 크기</string>
+    <string name="partition_list">파티션 목록</string>
+    <string name="partition_size">크기: %1$s</string>
+    <string name="sha256">SHA256: %1$s</string>
+    <string name="extract">추출</string>
+    <string name="payload_security_patch">보안 패치</string>
+    <string name="payload_build_date">빌드 날짜</string>
+    <string name="payload_package_type">패키지 유형</string>
+    <string name="payload_full">전체</string>
+    <string name="payload_incremental">증분</string>
+    <string name="payload_block_size">블록 크기</string>
+    <string name="payload_partial_update">부분 업데이트</string>
+    <string name="payload_yes">예</string>
+    <string name="payload_select_all">모두 선택</string>
+    <string name="payload_selected_count">선택됨: %1$d</string>
+    <string name="payload_extract_selected">선택 추출</string>
+    <string name="payload_extract_success">%1$s 추출 완료</string>
+    <string name="payload_extract_failed">%1$s 추출 실패</string>
+    <string name="payload_batch_complete">완료: %1$d 성공, %2$d 실패</string>
 </resources>

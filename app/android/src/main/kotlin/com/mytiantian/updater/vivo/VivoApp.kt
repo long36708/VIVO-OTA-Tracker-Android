@@ -7,15 +7,20 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -23,12 +28,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -36,25 +44,35 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mytiantian.updater.R
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -73,11 +91,15 @@ import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.darkColorScheme
 import top.yukonga.miuix.kmp.theme.lightColorScheme
+import com.mytiantian.updater.vivo.payload.PayloadDumperScreen
+import com.mytiantian.updater.vivo.payload.VivoPayloadViewModel
 
 @Composable
 fun VivoApp(viewModel: VivoOtaViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsState()
     var showAbout by remember { mutableStateOf(false) }
+    var showPayloadDumper by remember { mutableStateOf(false) }
+    val payloadViewModel: VivoPayloadViewModel = viewModel()
     val context = LocalContext.current
     val darkMode = isSystemInDarkTheme()
 
@@ -176,15 +198,48 @@ fun VivoApp(viewModel: VivoOtaViewModel = viewModel()) {
 
                 item { QueryButton(state, viewModel) }
 
+                val dumpUrl = state.result?.downloadUrl.orEmpty()
+                if (dumpUrl.isNotEmpty()) {
+                    item {
+                        Button(
+                            onClick = {
+                                payloadViewModel.parseFromUrl(dumpUrl)
+                                showPayloadDumper = true
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+                        ) {
+                            Text(stringResource(R.string.payload_dumper))
+                        }
+                    }
+                }
+
                 state.error?.let { err -> item { ErrorCard(err) } }
-                state.result?.let { result -> item { ResultCard(result, state.changelogContent, state.softwareVersion) } }
+                state.result?.let { result ->
+                    item(key = "result") {
+                        var visible by remember { mutableStateOf(false) }
+                        LaunchedEffect(result) { visible = true }
+                        AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
+                        ) {
+                            ResultCard(result, state.changelogContent, state.softwareVersion, state.androidVersion, state.isFullPackage)
+                        }
+                    }
+                }
                 if (state.history.isNotEmpty()) {
-                    item { HistoryCard(state.history, viewModel) }
+                    item { HistoryCard(state, viewModel) }
                 }
             }
         }
 
         if (showAbout) AboutDialog(onDismiss = { showAbout = false })
+        if (showPayloadDumper) {
+            PayloadDumperScreen(
+                viewModel = payloadViewModel,
+                onBack = { showPayloadDumper = false }
+            )
+        }
     }
 }
 
@@ -291,16 +346,43 @@ private fun DeviceTypeCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
 
 @Composable
 private fun AndroidVersionCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
-    val androidVersions = listOf("13", "14", "15", "16")
-    val androidIndex = androidVersions.indexOf(state.androidVersion.toString()).takeIf { it >= 0 } ?: 3
-    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-        OverlayDropdownPreference(
-            title = stringResource(R.string.label_android_version),
-            items = androidVersions,
-            selectedIndex = androidIndex,
-            onSelectedIndexChange = { viewModel.updateAndroidVersion(androidVersions[it].toInt()) },
-            modifier = Modifier.fillMaxWidth()
-        )
+    val customStr = stringResource(R.string.custom_version)
+    val androidVersions = listOf("13", "14", "15", "16", customStr)
+    val androidIndex = if (state.isCustomAndroidVersion) 4
+        else androidVersions.indexOf(state.androidVersion.toString()).takeIf { it >= 0 } ?: 3
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+            OverlayDropdownPreference(
+                title = stringResource(R.string.label_android_version),
+                items = androidVersions,
+                selectedIndex = androidIndex,
+                onSelectedIndexChange = {
+                    if (it == 4) {
+                        viewModel.selectCustomAndroidVersion()
+                    } else {
+                        viewModel.updateAndroidVersion(androidVersions[it].toInt())
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        AnimatedVisibility(
+            visible = state.isCustomAndroidVersion,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+                TextField(
+                    insideMargin = DpSize(16.dp, 24.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    value = state.customAndroidVersion,
+                    onValueChange = { viewModel.updateCustomAndroidVersion(it) },
+                    label = stringResource(R.string.custom_version),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
+                )
+            }
+        }
     }
 }
 
@@ -411,42 +493,95 @@ private fun ErrorCard(error: String) {
 }
 
 @Composable
-private fun ResultCard(result: VivoOtaResult, changelogContent: String?, currentVersion: String) {
+private fun ResultCard(
+    result: VivoOtaResult,
+    changelogContent: String?,
+    currentVersion: String,
+    androidVersion: Int,
+    isFullPackage: Boolean
+) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val copiedMsg = stringResource(R.string.copied)
+    val firmwareTypeStr = stringResource(if (isFullPackage) R.string.pkg_full else R.string.pkg_incremental)
+
+    fun copyToClipboard(label: String, text: String) {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        cb.setPrimaryClip(ClipData.newPlainText(label, text))
+        Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+    }
+
     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.result_title), fontSize = 16.sp)
             if (currentVersion.isNotEmpty()) {
-                Text(stringResource(R.string.current_version, currentVersion), color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                Text(
+                    stringResource(R.string.current_version, currentVersion),
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.combinedClickable(
+                        onClick = {},
+                        onLongClick = { copyToClipboard("version", currentVersion) }
+                    )
+                )
             }
             if (result.updateVersion.isNotEmpty() && result.updateVersion != "(Not found)") {
-                Text(stringResource(R.string.latest_version, result.updateVersion))
+                Text(
+                    stringResource(R.string.latest_version, result.updateVersion),
+                    modifier = Modifier.combinedClickable(
+                        onClick = {},
+                        onLongClick = { copyToClipboard("version", result.updateVersion) }
+                    )
+                )
             }
+            Text(stringResource(R.string.label_android_version) + ": $androidVersion", color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+            Text(stringResource(R.string.label_package_type) + ": $firmwareTypeStr", color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
             if (result.securityPatch.isNotEmpty() && result.securityPatch != "(Not found)") {
-                Text(stringResource(R.string.security_patch, result.securityPatch), color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                Text(
+                    stringResource(R.string.security_patch, result.securityPatch),
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.combinedClickable(
+                        onClick = {},
+                        onLongClick = { copyToClipboard("security", result.securityPatch) }
+                    )
+                )
             }
             if (result.updateDate.isNotEmpty() && result.updateDate != "(Not found)") {
-                Text(stringResource(R.string.update_date, result.updateDate), color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                Text(
+                    stringResource(R.string.update_date, result.updateDate),
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.combinedClickable(
+                        onClick = {},
+                        onLongClick = { copyToClipboard("date", result.updateDate) }
+                    )
+                )
             }
             if (result.filename.isNotEmpty() && result.filename != "(Not found)") {
-                Text(stringResource(R.string.filename, result.filename), color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                Text(
+                    stringResource(R.string.filename, result.filename),
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.combinedClickable(
+                        onClick = {},
+                        onLongClick = { copyToClipboard("filename", result.filename) }
+                    )
+                )
             }
             if (result.fileSizeMb.isNotEmpty()) {
                 Text(stringResource(R.string.size_mb, result.fileSizeMb), color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
             }
             if (result.downloadUrl.isNotEmpty()) {
                 HorizontalDivider()
-                Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(result.downloadUrl)))
-                    }) { Text(stringResource(R.string.btn_download)) }
-                    Button(onClick = {
-                        val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        cb.setPrimaryClip(ClipData.newPlainText("url", result.downloadUrl))
-                        Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
-                    }) { Text(stringResource(R.string.btn_copy_link)) }
-                }
+                Text(
+                    text = result.downloadUrl,
+                    color = MiuixTheme.colorScheme.primary,
+                    fontSize = 12.sp,
+                    modifier = Modifier.combinedClickable(
+                        onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(result.downloadUrl)))
+                        },
+                        onLongClick = { copyToClipboard("url", result.downloadUrl) }
+                    )
+                )
             }
             if (changelogContent != null) {
                 HorizontalDivider()
@@ -460,7 +595,11 @@ private fun ResultCard(result: VivoOtaResult, changelogContent: String?, current
                     Text(
                         text = changelogContent,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        fontSize = 13.sp
+                        fontSize = 13.sp,
+                        modifier = Modifier.combinedClickable(
+                            onClick = {},
+                            onLongClick = { copyToClipboard("changelog", changelogContent) }
+                        )
                     )
                 }
             }
@@ -469,11 +608,16 @@ private fun ResultCard(result: VivoOtaResult, changelogContent: String?, current
 }
 
 @Composable
-private fun HistoryCard(history: List<QueryHistoryEntry>, viewModel: VivoOtaViewModel) {
+private fun HistoryCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val copiedMsg = stringResource(R.string.copied)
-    val copyLinkStr = stringResource(R.string.btn_copy_link)
     var expanded by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    val history = state.history
+    val selectionMode = state.historySelectionMode
+    val selected = state.selectedHistory
+
     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         Column {
             Row(
@@ -482,22 +626,52 @@ private fun HistoryCard(history: List<QueryHistoryEntry>, viewModel: VivoOtaView
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.history_title, history.size), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    if (selectionMode) {
+                        Checkbox(
+                            state = if (viewModel.isAllHistorySelected()) ToggleableState.On else ToggleableState.Off,
+                            onClick = { viewModel.selectAllHistory() }
+                        )
+                        Text(
+                            text = "${selected.size}/${history.size}",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    } else {
+                        Text(stringResource(R.string.history_title, history.size), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (expanded) " ▾" else " ▸",
+                            fontSize = 14.sp,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            modifier = Modifier.padding(start = 2.dp)
+                        )
+                    }
+                }
+                if (selectionMode) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (selected.isNotEmpty()) {
+                            Text(
+                                text = stringResource(R.string.btn_delete_selected, selected.size),
+                                color = Color(0xFFE53935),
+                                modifier = Modifier.clickable { showDeleteConfirm = true }
+                            )
+                        }
+                        Text(
+                            text = stringResource(R.string.btn_done),
+                            color = MiuixTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { viewModel.toggleHistorySelectionMode() }
+                        )
+                    }
+                } else {
                     Text(
-                        text = if (expanded) " ▾" else " ▸",
-                        fontSize = 14.sp,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        modifier = Modifier.padding(start = 2.dp)
+                        text = stringResource(R.string.btn_manage),
+                        color = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { viewModel.toggleHistorySelectionMode() }
                     )
                 }
-                Text(
-                    text = stringResource(R.string.btn_clear),
-                    color = Color(0xFFE53935),
-                    modifier = Modifier.clickable { viewModel.clearHistory() }
-                )
             }
             AnimatedVisibility(
-                visible = expanded,
+                visible = if (selectionMode) true else expanded,
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut()
             ) {
@@ -505,36 +679,200 @@ private fun HistoryCard(history: List<QueryHistoryEntry>, viewModel: VivoOtaView
                     HorizontalDivider()
                     history.take(10).forEachIndexed { index, entry ->
                         if (index > 0) HorizontalDivider()
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
-                        ) {
-                            Text("${entry.model} · ${viewModel.formatTime(entry.timestamp)}")
-                            Text(
-                                stringResource(R.string.history_query, entry.swVersion, entry.resultVersion),
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                fontSize = 13.sp
+                        if (selectionMode) {
+                            HistoryEntrySelectionRow(entry, selected.contains(entry.timestamp), viewModel)
+                        } else {
+                            SwipeToDeleteHistoryEntry(
+                                entry = entry,
+                                viewModel = viewModel,
+                                context = context,
+                                haptic = haptic,
+                                copiedMsg = copiedMsg
                             )
-                            if (entry.fileSize.isNotEmpty()) {
-                                Text(
-                                    stringResource(R.string.history_size, entry.fileSize),
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                    fontSize = 13.sp
-                                )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showDeleteConfirm) {
+        ConfirmDeleteDialog(
+            message = stringResource(R.string.confirm_delete_multiple, selected.size),
+            onConfirm = { viewModel.deleteSelectedHistory() },
+            onDismiss = { showDeleteConfirm = false }
+        )
+    }
+}
+
+@Composable
+private fun HistoryEntrySelectionRow(
+    entry: QueryHistoryEntry,
+    isSelected: Boolean,
+    viewModel: VivoOtaViewModel
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { viewModel.toggleHistorySelection(entry.timestamp) }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(
+            state = if (isSelected) ToggleableState.On else ToggleableState.Off,
+            onClick = { viewModel.toggleHistorySelection(entry.timestamp) }
+        )
+        Column(modifier = Modifier.padding(start = 8.dp)) {
+            Text("${entry.model} · ${viewModel.formatTime(entry.timestamp)}")
+            Text(
+                stringResource(R.string.history_query, entry.swVersion, entry.resultVersion),
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                fontSize = 13.sp
+            )
+            if (entry.fileSize.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.history_size, entry.fileSize),
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    fontSize = 13.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SwipeToDeleteHistoryEntry(
+    entry: QueryHistoryEntry,
+    viewModel: VivoOtaViewModel,
+    context: Context,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    copiedMsg: String
+) {
+    val scope = rememberCoroutineScope()
+    val offsetX = remember(entry.timestamp) { Animatable(0f) }
+    val threshold = 300f
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clipToBounds()
+    ) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(Color(0xFFFF3B30)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "\uD83D\uDDD1\uFE0F",
+                color = Color.White,
+                fontSize = 24.sp
+            )
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MiuixTheme.colorScheme.surfaceContainer)
+                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                .pointerInput(entry.timestamp) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            scope.launch {
+                                if (offsetX.value < -threshold * 0.4f) {
+                                    offsetX.animateTo(0f)
+                                    showDeleteConfirm = true
+                                } else {
+                                    offsetX.animateTo(0f)
+                                }
                             }
-                            if (entry.downloadUrl.isNotEmpty()) {
-                                Text(
-                                    text = copyLinkStr,
-                                    color = MiuixTheme.colorScheme.primary,
-                                    fontSize = 13.sp,
-                                    modifier = Modifier.clickable {
-                                        val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        cb.setPrimaryClip(ClipData.newPlainText("url", entry.downloadUrl))
-                                        Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
-                                    }
-                                )
-                            }
+                        }
+                    ) { _, dragAmount ->
+                        scope.launch {
+                            offsetX.snapTo((offsetX.value + dragAmount).coerceIn(-threshold * 2f, 0f))
+                        }
+                    }
+                }
+                .padding(16.dp)
+        ) {
+            Text("${entry.model} · ${viewModel.formatTime(entry.timestamp)}")
+            Text(
+                stringResource(R.string.history_query, entry.swVersion, entry.resultVersion),
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                fontSize = 13.sp
+            )
+            if (entry.fileSize.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.history_size, entry.fileSize),
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    fontSize = 13.sp
+                )
+            }
+            if (entry.downloadUrl.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.btn_copy_link),
+                    color = MiuixTheme.colorScheme.primary,
+                    fontSize = 13.sp,
+                    modifier = Modifier.combinedClickable(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            cb.setPrimaryClip(ClipData.newPlainText("url", entry.downloadUrl))
+                            Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+                        },
+                        onLongClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            cb.setPrimaryClip(ClipData.newPlainText("url", entry.downloadUrl))
+                            Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                )
+            }
+        }
+    }
+
+    if (showDeleteConfirm) {
+        ConfirmDeleteDialog(
+            message = stringResource(R.string.confirm_delete),
+            onConfirm = { viewModel.deleteHistoryEntry(entry.timestamp) },
+            onDismiss = { showDeleteConfirm = false }
+        )
+    }
+}
+
+@Composable
+private fun ConfirmDeleteDialog(
+    message: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Bottom,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(message, fontSize = 15.sp)
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f)
+                        ) { Text(stringResource(R.string.btn_cancel)) }
+                        Button(
+                            onClick = { onConfirm(); onDismiss() },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColorsPrimary()
+                        ) {
+                            Text(stringResource(R.string.btn_delete_selected, 0).substringBefore("(").trim())
                         }
                     }
                 }
@@ -546,93 +884,102 @@ private fun HistoryCard(history: List<QueryHistoryEntry>, viewModel: VivoOtaView
 @Composable
 private fun AboutDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val copiedMsg = stringResource(R.string.copied)
     Dialog(onDismissRequest = onDismiss) {
-        Card(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Column(
-                modifier = Modifier.padding(20.dp).verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(3.dp)
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Bottom,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_launcher),
-                    contentDescription = null,
-                    modifier = Modifier.size(48.dp).clip(CircleShape)
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(stringResource(R.string.app_name), fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                Text("v1.2.0", fontSize = 13.sp, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(10.dp))
+                Column(
+                    modifier = Modifier.padding(20.dp).verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Image(
+                        painter = painterResource(R.drawable.ic_launcher),
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp).clip(CircleShape)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(stringResource(R.string.app_name), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text("v1.3.0", fontSize = 13.sp, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                Text(stringResource(R.string.about_developer), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Text("mytiantian001", fontSize = 13.sp)
-                Text(
-                    text = "Coolapk @mytiantian",
-                    color = MiuixTheme.colorScheme.primary,
-                    fontSize = 12.sp,
-                    modifier = Modifier.clickable {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.coolapk.com/u/4430874")))
-                    }
-                )
-                Spacer(modifier = Modifier.height(6.dp))
+                    Text(stringResource(R.string.about_developer), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("mytiantian001", fontSize = 13.sp)
+                    Text(
+                        text = "Coolapk @mytiantian_是天天吖",
+                        color = MiuixTheme.colorScheme.primary,
+                        fontSize = 12.sp,
+                        modifier = Modifier.combinedClickable(
+                            onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.coolapk.com/u/4430874"))) },
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                cb.setPrimaryClip(ClipData.newPlainText("url", "https://www.coolapk.com/u/4430874"))
+                                Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
 
-                Text(stringResource(R.string.about_original_author), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Text("Coolapk @JerryTse", fontSize = 13.sp)
-                Text(
-                    text = "GitHub: JerryTse-OSS / VIVO-OTA-Tracker",
-                    color = MiuixTheme.colorScheme.primary,
-                    fontSize = 12.sp,
-                    modifier = Modifier.clickable {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/JerryTse-OSS/VIVO-OTA-Tracker")))
-                    }
-                )
-                Text(
-                    text = "Coolapk: @JerryTse",
-                    color = MiuixTheme.colorScheme.primary,
-                    fontSize = 12.sp,
-                    modifier = Modifier.clickable {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.coolapk.com/u/2643293")))
-                    }
-                )
-                Spacer(modifier = Modifier.height(6.dp))
+                    Text(stringResource(R.string.about_reference), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "YuKongA / Updater-KMP",
+                        color = MiuixTheme.colorScheme.primary,
+                        fontSize = 12.sp,
+                        modifier = Modifier.combinedClickable(
+                            onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/YuKongA/Updater-KMP"))) },
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                cb.setPrimaryClip(ClipData.newPlainText("url", "https://github.com/YuKongA/Updater-KMP"))
+                                Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
 
-                Text(stringResource(R.string.about_reference), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    text = "YuKongA / Updater-KMP",
-                    color = MiuixTheme.colorScheme.primary,
-                    fontSize = 12.sp,
-                    modifier = Modifier.clickable {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/YuKongA/Updater-KMP")))
+                    Text(stringResource(R.string.about_source), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "VIVO-OTA-Tracker-Android",
+                        color = MiuixTheme.colorScheme.primary,
+                        fontSize = 12.sp,
+                        modifier = Modifier.combinedClickable(
+                            onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/mytiantian001/VIVO-OTA-Tracker-Android"))) },
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                cb.setPrimaryClip(ClipData.newPlainText("url", "https://github.com/mytiantian001/VIVO-OTA-Tracker-Android"))
+                                Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        "© 2026 mytiantian001",
+                        fontSize = 11.sp,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    )
+                    Text(
+                        stringResource(R.string.about_disclaimer),
+                        fontSize = 11.sp,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.btn_close))
                     }
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Text(stringResource(R.string.about_source), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    text = "VIVO-OTA-Tracker-Android",
-                    color = MiuixTheme.colorScheme.primary,
-                    fontSize = 12.sp,
-                    modifier = Modifier.clickable {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/mytiantian001/VIVO-OTA-Tracker-Android")))
-                    }
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    "© 2026 mytiantian001",
-                    fontSize = 11.sp,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                )
-                Text(
-                    stringResource(R.string.about_disclaimer),
-                    fontSize = 11.sp,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.btn_close))
                 }
             }
         }

@@ -22,6 +22,7 @@
     <!-- Version input -->
     <string name="label_sw_version">เวอร์ชันระบบ (เช่น 16.1.16.5.W10)</string>
     <string name="hint_sw_version">ไลบรารีการเข้ารหัสไม่รองรับการดึงเวอร์ชันสำหรับอุปกรณ์เก่าที่ใช้รูปแบบ x.x.x</string>
+    <string name="custom_version">กำหนดเอง</string>
     <string name="label_sn">หมายเลขซีเรียล SN (ไม่บังคับ)</string>
     <string name="label_package_type">ประเภทแพ็กเกจ</string>
     <string name="pkg_full">แพ็กเกจเต็ม</string>
@@ -42,6 +43,8 @@
     <string name="update_date">วันที่อัปเดต: %1$s</string>
     <string name="btn_download">ดาวน์โหลด</string>
     <string name="btn_copy_link">คัดลอกลิงก์</string>
+    <string name="btn_copy_version">คัดลอกเวอร์ชัน</string>
+    <string name="btn_copy_changelog">คัดลอกบันทึกการเปลี่ยนแปลง</string>
     <string name="copied">คัดลอกแล้ว</string>
 
     <!-- Changelog -->
@@ -51,6 +54,14 @@
     <!-- History -->
     <string name="history_title">ประวัติการค้นหา (%1$d)</string>
     <string name="btn_clear">ล้าง</string>
+    <string name="btn_manage">จัดการ</string>
+    <string name="btn_delete_selected">ลบ (%1$d)</string>
+    <string name="btn_select_all">เลือกทั้งหมด</string>
+    <string name="btn_done">เสร็จสิ้น</string>
+    <string name="hint_swipe_delete">ปัดเพื่อลบ</string>
+    <string name="confirm_delete">ลบรายการนี้?</string>
+    <string name="confirm_delete_multiple">ลบ %1$d รายการที่เลือก?</string>
+    <string name="btn_cancel">ยกเลิก</string>
     <string name="history_query">ค้นหา: %1$s \u2192 %2$s</string>
     <string name="history_size">ขนาด: %1$s MB</string>
 
@@ -66,4 +77,32 @@
     <string name="toast_success">ค้นหาสำเร็จ</string>
     <string name="toast_no_update">ไม่พบการอัปเดต</string>
     <string name="no_changelog">ไม่มีบันทึกการเปลี่ยนแปลง</string>
+
+    <!-- Payload Dumper -->
+    <string name="payload_dumper">ดูรายการพาร์ติชัน</string>
+    <string name="payload_loading">กำลังโหลดรายการพาร์ติชัน…</string>
+    <string name="parse">แยกวิเคราะห์</string>
+    <string name="error">ข้อผิดพลาด</string>
+    <string name="dismiss">ปิด</string>
+    <string name="rom_info">ข้อมูลเฟิร์มแวร์</string>
+    <string name="file_name">ชื่อไฟล์</string>
+    <string name="file_size">ขนาดไฟล์</string>
+    <string name="partition_list">รายการพาร์ทิชัน</string>
+    <string name="partition_size">ขนาด: %1$s</string>
+    <string name="sha256">SHA256: %1$s</string>
+    <string name="extract">แยก</string>
+    <string name="payload_security_patch">แพตช์ความปลอดภัย</string>
+    <string name="payload_build_date">วันที่บิลด์</string>
+    <string name="payload_package_type">ประเภทแพ็กเกจ</string>
+    <string name="payload_full">แบบเต็ม</string>
+    <string name="payload_incremental">แบบเพิ่มส่วน</string>
+    <string name="payload_block_size">ขนาดบล็อก</string>
+    <string name="payload_partial_update">อัปเดตบางส่วน</string>
+    <string name="payload_yes">ใช่</string>
+    <string name="payload_select_all">เลือกทั้งหมด</string>
+    <string name="payload_selected_count">เลือกแล้ว: %1$d</string>
+    <string name="payload_extract_selected">แยกไฟล์ที่เลือก</string>
+    <string name="payload_extract_success">แยกไฟล์ %1$s เสร็จสิ้น</string>
+    <string name="payload_extract_failed">แยกไฟล์ %1$s ล้มเหลว</string>
+    <string name="payload_batch_complete">เสร็จสิ้น: %1$d สำเร็จ, %2$d ล้มเหลว</string>
 </resources>

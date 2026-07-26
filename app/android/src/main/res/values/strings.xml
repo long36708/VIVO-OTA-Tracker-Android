@@ -22,6 +22,7 @@
     <!-- Version input -->
     <string name="label_sw_version">System version (e.g. 16.1.16.5.W10)</string>
     <string name="hint_sw_version">The encryption library does not support version retrieval for older devices with x.x.x format</string>
+    <string name="custom_version">Custom</string>
     <string name="label_sn">SN serial number (optional)</string>
     <string name="label_package_type">Package type</string>
     <string name="pkg_full">Full package</string>
@@ -42,6 +43,8 @@
     <string name="update_date">Update date: %1$s</string>
     <string name="btn_download">Download</string>
     <string name="btn_copy_link">Copy link</string>
+    <string name="btn_copy_version">Copy version</string>
+    <string name="btn_copy_changelog">Copy changelog</string>
     <string name="copied">Copied</string>
 
     <!-- Changelog -->
@@ -53,6 +56,14 @@
     <string name="btn_clear">Clear</string>
     <string name="history_query">Query: %1$s \u2192 %2$s</string>
     <string name="history_size">Size: %1$s MB</string>
+    <string name="btn_manage">Manage</string>
+    <string name="btn_delete_selected">Delete (%1$d)</string>
+    <string name="btn_select_all">Select all</string>
+    <string name="btn_done">Done</string>
+    <string name="hint_swipe_delete">Swipe to delete</string>
+    <string name="confirm_delete">Delete this record?</string>
+    <string name="confirm_delete_multiple">Delete %1$d selected records?</string>
+    <string name="btn_cancel">Cancel</string>
 
     <!-- About -->
     <string name="about_developer">Developer</string>
@@ -66,4 +77,32 @@
     <string name="toast_success">Query successful</string>
     <string name="toast_no_update">No update found</string>
     <string name="no_changelog">No changelog available</string>
+
+    <!-- Payload Dumper -->
+    <string name="payload_dumper">View partition list</string>
+    <string name="payload_loading">Loading partition list…</string>
+    <string name="parse">Parse</string>
+    <string name="error">Error</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="rom_info">ROM Info</string>
+    <string name="file_name">File name</string>
+    <string name="file_size">File size</string>
+    <string name="partition_list">Partition List</string>
+    <string name="partition_size">Size: %1$s</string>
+    <string name="sha256">SHA256: %1$s</string>
+    <string name="extract">Extract</string>
+    <string name="payload_security_patch">Security patch</string>
+    <string name="payload_build_date">Build date</string>
+    <string name="payload_package_type">Package type</string>
+    <string name="payload_full">Full</string>
+    <string name="payload_incremental">Incremental</string>
+    <string name="payload_block_size">Block size</string>
+    <string name="payload_partial_update">Partial update</string>
+    <string name="payload_yes">Yes</string>
+    <string name="payload_select_all">Select all</string>
+    <string name="payload_selected_count">Selected: %1$d</string>
+    <string name="payload_extract_selected">Extract selected</string>
+    <string name="payload_extract_success">%1$s extraction complete</string>
+    <string name="payload_extract_failed">%1$s extraction failed</string>
+    <string name="payload_batch_complete">Batch complete: %1$d success, %2$d failed</string>
 </resources>

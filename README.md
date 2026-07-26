@@ -11,6 +11,7 @@ By loading the native `libvivoseckey.so` library, this app processes the necessa
 * 🔒 **Native Encryption**: Powered by `libvivoseckey.so` JNI engine — all encryption/decryption happens on-device, no server required.
 * 📱 **Multi-Device Support**: Built-in database of 14 series and 395+ models, plus manual input mode for devices not in the database.
 * 🔄 **Full / Incremental**: Query both full firmware packages and incremental OTA updates.
+* 🗂️ **Payload Dumper**: View partition list from OTA payload online, with multi-select batch extraction of partition images.
 * 🌐 **Multilingual**: 11 languages — English, 简体中文, 繁體中文, Русский, Bahasa Indonesia, ภาษาไทย, Tiếng Việt, हिन्दी, 日本語, 한국어. Follows system language automatically.
 * 📋 **Query History**: Collapsible, locally persisted query history with one-tap link copying.
 * 📝 **Inline Changelog**: Update logs parsed and displayed directly in-app, no browser needed.
@@ -69,7 +70,6 @@ This project is for technical learning and communication purposes only. Do not u
 | Role | Info |
 |------|------|
 | Developer | [mytiantian001](https://www.coolapk.com/u/4430874) |
-| Original Author | [桜酱没有未来](https://www.coolapk.com/u/2643293) / [JerryTse-OSS](https://github.com/JerryTse-OSS/VIVO-OTA-Tracker) |
 | Reference Project | [YuKongA / Updater-KMP](https://github.com/YuKongA/Updater-KMP) |
 
 ---
@@ -77,7 +77,6 @@ This project is for technical learning and communication purposes only. Do not u
 ### 🔗 Related Projects
 
 * **PC Version** (PyQt5 + Fluent-Widgets): [mytiantian001/VIVO-OTA-Tracker](https://github.com/mytiantian001/VIVO-OTA-Tracker)
-* **Original Project** (unidbg-based): [JerryTse-OSS/VIVO-OTA-Tracker](https://github.com/JerryTse-OSS/VIVO-OTA-Tracker)
 * **Updater-KMP** (Kotlin Multiplatform framework): [YuKongA/Updater-KMP](https://github.com/YuKongA/Updater-KMP)
 
 ---

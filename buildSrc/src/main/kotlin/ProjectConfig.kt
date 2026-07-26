@@ -1,8 +1,9 @@
 object ProjectConfig {
     const val JVM_VERSION = 25
-    const val APP_NAME = "Updater"
-    const val PACKAGE_NAME = "com.mytiantian.updater"
-    const val VERSION_NAME = "1.2.0"
+    const val APP_NAME = "vivo OTA Tracker"
+    const val NAMESPACE = "com.mytiantian.updater"
+    const val PACKAGE_NAME = "com.mytiantian.vivoupdater"
+    const val VERSION_NAME = "1.3.0"
 
     object Android {
         const val TARGET_SDK = 37

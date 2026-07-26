@@ -22,6 +22,7 @@
     <!-- Version input -->
     <string name="label_sw_version">システムバージョン (例: 16.1.16.5.W10)</string>
     <string name="hint_sw_version">暗号化ライブラリは古いデバイスの x.x.x 形式のバージョン取得に対応していません</string>
+    <string name="custom_version">カスタム</string>
     <string name="label_sn">SN シリアル番号 (任意)</string>
     <string name="label_package_type">パッケージタイプ</string>
     <string name="pkg_full">フルパッケージ</string>
@@ -42,6 +43,8 @@
     <string name="update_date">更新日: %1$s</string>
     <string name="btn_download">ダウンロード</string>
     <string name="btn_copy_link">リンクをコピー</string>
+    <string name="btn_copy_version">バージョンをコピー</string>
+    <string name="btn_copy_changelog">変更履歴をコピー</string>
     <string name="copied">コピーしました</string>
 
     <!-- Changelog -->
@@ -51,6 +54,14 @@
     <!-- History -->
     <string name="history_title">検索履歴 (%1$d)</string>
     <string name="btn_clear">クリア</string>
+    <string name="btn_manage">管理</string>
+    <string name="btn_delete_selected">削除 (%1$d)</string>
+    <string name="btn_select_all">すべて選択</string>
+    <string name="btn_done">完了</string>
+    <string name="hint_swipe_delete">スワイプで削除</string>
+    <string name="confirm_delete">この記録を削除しますか？</string>
+    <string name="confirm_delete_multiple">選択した %1$d 件の記録を削除しますか？</string>
+    <string name="btn_cancel">キャンセル</string>
     <string name="history_query">検索: %1$s \u2192 %2$s</string>
     <string name="history_size">サイズ: %1$s MB</string>
 
@@ -66,4 +77,32 @@
     <string name="toast_success">検索成功</string>
     <string name="toast_no_update">更新が見つかりません</string>
     <string name="no_changelog">変更履歴はありません</string>
+
+    <!-- Payload Dumper -->
+    <string name="payload_dumper">パーティション一覧</string>
+    <string name="payload_loading">パーティションリストを読み込み中…</string>
+    <string name="parse">解析</string>
+    <string name="error">エラー</string>
+    <string name="dismiss">閉じる</string>
+    <string name="rom_info">ROM 情報</string>
+    <string name="file_name">ファイル名</string>
+    <string name="file_size">ファイルサイズ</string>
+    <string name="partition_list">パーティション一覧</string>
+    <string name="partition_size">サイズ: %1$s</string>
+    <string name="sha256">SHA256: %1$s</string>
+    <string name="extract">抽出</string>
+    <string name="payload_security_patch">セキュリティパッチ</string>
+    <string name="payload_build_date">ビルド日時</string>
+    <string name="payload_package_type">パッケージ種別</string>
+    <string name="payload_full">フル</string>
+    <string name="payload_incremental">差分</string>
+    <string name="payload_block_size">ブロックサイズ</string>
+    <string name="payload_partial_update">部分更新</string>
+    <string name="payload_yes">はい</string>
+    <string name="payload_select_all">すべて選択</string>
+    <string name="payload_selected_count">選択中: %1$d</string>
+    <string name="payload_extract_selected">選択を抽出</string>
+    <string name="payload_extract_success">%1$s の抽出が完了しました</string>
+    <string name="payload_extract_failed">%1$s の抽出に失敗しました</string>
+    <string name="payload_batch_complete">完了: %1$d 成功, %2$d 失敗</string>
 </resources>

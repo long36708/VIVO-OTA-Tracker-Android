@@ -22,6 +22,7 @@
     <!-- Version input -->
     <string name="label_sw_version">系統版本號 (例如: 16.1.16.5.W10)</string>
     <string name="hint_sw_version">加密庫不支援早期舊裝置的 x.x.x 版本號取得</string>
+    <string name="custom_version">自訂</string>
     <string name="label_sn">SN 序號 (選填)</string>
     <string name="label_package_type">包類型</string>
     <string name="pkg_full">完整包</string>
@@ -42,6 +43,8 @@
     <string name="update_date">更新日期: %1$s</string>
     <string name="btn_download">下載</string>
     <string name="btn_copy_link">複製連結</string>
+    <string name="btn_copy_version">複製版本號</string>
+    <string name="btn_copy_changelog">複製日誌</string>
     <string name="copied">已複製</string>
 
     <!-- Changelog -->
@@ -51,6 +54,14 @@
     <!-- History -->
     <string name="history_title">查詢歷史 (%1$d)</string>
     <string name="btn_clear">清空</string>
+    <string name="btn_manage">管理</string>
+    <string name="btn_delete_selected">刪除(%1$d)</string>
+    <string name="btn_select_all">全選</string>
+    <string name="btn_done">完成</string>
+    <string name="hint_swipe_delete">滑動刪除</string>
+    <string name="confirm_delete">確認刪除這條記錄？</string>
+    <string name="confirm_delete_multiple">確認刪除選中的 %1$d 條記錄？</string>
+    <string name="btn_cancel">取消</string>
     <string name="history_query">查詢: %1$s \u2192 %2$s</string>
     <string name="history_size">大小: %1$s MB</string>
 
@@ -66,4 +77,32 @@
     <string name="toast_success">查詢成功</string>
     <string name="toast_no_update">未查詢到更新</string>
     <string name="no_changelog">暫無更新日誌</string>
+
+    <!-- Payload Dumper -->
+    <string name="payload_dumper">查看分區列表</string>
+    <string name="payload_loading">正在載入分區列表…</string>
+    <string name="parse">解析</string>
+    <string name="error">錯誤</string>
+    <string name="dismiss">關閉</string>
+    <string name="rom_info">韌體資訊</string>
+    <string name="file_name">檔案名稱</string>
+    <string name="file_size">檔案大小</string>
+    <string name="partition_list">分割區列表</string>
+    <string name="partition_size">大小：%1$s</string>
+    <string name="sha256">SHA256：%1$s</string>
+    <string name="extract">提取</string>
+    <string name="payload_security_patch">安全性修補程式</string>
+    <string name="payload_build_date">建構日期</string>
+    <string name="payload_package_type">套件類型</string>
+    <string name="payload_full">完整套件</string>
+    <string name="payload_incremental">增量套件</string>
+    <string name="payload_block_size">區塊大小</string>
+    <string name="payload_partial_update">部分更新</string>
+    <string name="payload_yes">是</string>
+    <string name="payload_select_all">全選</string>
+    <string name="payload_selected_count">已選: %1$d</string>
+    <string name="payload_extract_selected">提取選中</string>
+    <string name="payload_extract_success">%1$s 提取完成</string>
+    <string name="payload_extract_failed">%1$s 提取失敗</string>
+    <string name="payload_batch_complete">批次完成: %1$d 成功, %2$d 失敗</string>
 </resources>

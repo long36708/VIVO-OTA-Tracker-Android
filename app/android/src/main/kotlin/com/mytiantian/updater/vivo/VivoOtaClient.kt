@@ -154,13 +154,13 @@ class VivoOtaClient(private val context: Context) {
         }
         Log.d(TAG, "Changelog URL: '$changelogUrl'")
 
-        val securityPatch = extractFirstAvailable(updateResponse, listOf(
-            "securityPatch\":\"", "securityPath\":\"", "spVersion\":\"", "sp\":\"", "secPatch\":\""
+        val securityPatch = extractField(updateResponse, listOf(
+            "securityPatch", "securityPath", "spVersion", "secPatch", "securityVersion", "secPatchDate", "security_patch"
         ))
-        val updateDate = extractFirstAvailable(updateResponse, listOf(
-            "createTime\":\"", "updateTime\":\"", "updatetime\":\"", "releaseTime\":\"", "pubdate\":\"", "submitTime\":\""
+        val updateDate = extractField(updateResponse, listOf(
+            "createTime", "updateTime", "releaseTime", "publishTime", "upgradeTime", "pubdate", "submitTime"
         ))
-        val md5 = extractFirstAvailable(updateResponse, listOf("md5\":\"", "fileMd5\":\"", "pkMd5\":\""))
+        val md5 = extractField(updateResponse, listOf("md5", "fileMd5", "pkMd5"))
 
         Log.d(TAG, "Security patch: '$securityPatch', Update date: '$updateDate', MD5: '$md5'")
 
@@ -226,6 +226,35 @@ class VivoOtaClient(private val context: Context) {
             val value = extractJsonStr(json, key)
             if (value != "(Not found)" && value.isNotEmpty()) {
                 return value
+            }
+        }
+        return ""
+    }
+
+    private fun extractField(json: String, fieldNames: List<String>): String {
+        for (name in fieldNames) {
+            val strKey = "\"$name\":\""
+            val strIdx = json.indexOf(strKey)
+            if (strIdx >= 0) {
+                val start = strIdx + strKey.length
+                val end = json.indexOf('"', start)
+                if (end > start) {
+                    val value = json.substring(start, end).trim()
+                    if (value.isNotEmpty()) return value
+                }
+            }
+            val numKey = "\"$name\":"
+            val numIdx = json.indexOf(numKey)
+            if (numIdx >= 0) {
+                val start = numIdx + numKey.length
+                var s = start
+                while (s < json.length && json[s].isWhitespace()) s++
+                if (s < json.length && json[s] != ',' && json[s] != '}' && json[s] != ']' && json[s] != 'n') {
+                    val end = json.indexOfAny(charArrayOf(',', '}', ']'), s)
+                    val realEnd = if (end < 0) json.length else end
+                    val value = json.substring(s, realEnd).trim().removeSurrounding("\"")
+                    if (value.isNotEmpty() && value != "0" && value != "null") return value
+                }
             }
         }
         return ""

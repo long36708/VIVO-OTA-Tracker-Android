@@ -22,6 +22,7 @@
     <!-- Version input -->
     <string name="label_sw_version">Версия системы (напр. 16.1.16.5.W10)</string>
     <string name="hint_sw_version">Библиотека шифрования не поддерживает получение версии для старых устройств в формате x.x.x</string>
+    <string name="custom_version">Своя</string>
     <string name="label_sn">Серийный номер SN (необязательно)</string>
     <string name="label_package_type">Тип пакета</string>
     <string name="pkg_full">Полный пакет</string>
@@ -42,6 +43,8 @@
     <string name="update_date">Дата обновления: %1$s</string>
     <string name="btn_download">Скачать</string>
     <string name="btn_copy_link">Копировать ссылку</string>
+    <string name="btn_copy_version">Копировать версию</string>
+    <string name="btn_copy_changelog">Копировать изменения</string>
     <string name="copied">Скопировано</string>
 
     <!-- Changelog -->
@@ -51,6 +54,14 @@
     <!-- History -->
     <string name="history_title">История запросов (%1$d)</string>
     <string name="btn_clear">Очистить</string>
+    <string name="btn_manage">Управление</string>
+    <string name="btn_delete_selected">Удалить (%1$d)</string>
+    <string name="btn_select_all">Выбрать все</string>
+    <string name="btn_done">Готово</string>
+    <string name="hint_swipe_delete">Смахните для удаления</string>
+    <string name="confirm_delete">Удалить эту запись?</string>
+    <string name="confirm_delete_multiple">Удалить %1$d выбранных записей?</string>
+    <string name="btn_cancel">Отмена</string>
     <string name="history_query">Запрос: %1$s \u2192 %2$s</string>
     <string name="history_size">Размер: %1$s МБ</string>
 
@@ -66,4 +77,32 @@
     <string name="toast_success">Запрос выполнен</string>
     <string name="toast_no_update">Обновление не найдено</string>
     <string name="no_changelog">Список изменений недоступен</string>
+
+    <!-- Payload Dumper -->
+    <string name="payload_dumper">Просмотр списка разделов</string>
+    <string name="payload_loading">Загрузка списка разделов…</string>
+    <string name="parse">Разобрать</string>
+    <string name="error">Ошибка</string>
+    <string name="dismiss">Закрыть</string>
+    <string name="rom_info">Сведения о прошивке</string>
+    <string name="file_name">Имя файла</string>
+    <string name="file_size">Размер файла</string>
+    <string name="partition_list">Список разделов</string>
+    <string name="partition_size">Размер: %1$s</string>
+    <string name="sha256">SHA256: %1$s</string>
+    <string name="extract">Извлечь</string>
+    <string name="payload_security_patch">Патч безопасности</string>
+    <string name="payload_build_date">Дата сборки</string>
+    <string name="payload_package_type">Тип пакета</string>
+    <string name="payload_full">Полный</string>
+    <string name="payload_incremental">Инкрементальный</string>
+    <string name="payload_block_size">Размер блока</string>
+    <string name="payload_partial_update">Частичное обновление</string>
+    <string name="payload_yes">Да</string>
+    <string name="payload_select_all">Выбрать все</string>
+    <string name="payload_selected_count">Выбрано: %1$d</string>
+    <string name="payload_extract_selected">Извлечь выбранные</string>
+    <string name="payload_extract_success">%1$s извлечение завершено</string>
+    <string name="payload_extract_failed">%1$s ошибка извлечения</string>
+    <string name="payload_batch_complete">Готово: %1$d успешно, %2$d с ошибкой</string>
 </resources>

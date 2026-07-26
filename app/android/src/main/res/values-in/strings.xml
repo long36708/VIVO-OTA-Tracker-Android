@@ -22,6 +22,7 @@
     <!-- Version input -->
     <string name="label_sw_version">Versi sistem (mis. 16.1.16.5.W10)</string>
     <string name="hint_sw_version">Pustaka enkripsi tidak mendukung pengambilan versi untuk perangkat lama dengan format x.x.x</string>
+    <string name="custom_version">Kustom</string>
     <string name="label_sn">Nomor seri SN (opsional)</string>
     <string name="label_package_type">Jenis paket</string>
     <string name="pkg_full">Paket lengkap</string>
@@ -42,6 +43,8 @@
     <string name="update_date">Tanggal pembaruan: %1$s</string>
     <string name="btn_download">Unduh</string>
     <string name="btn_copy_link">Salin tautan</string>
+    <string name="btn_copy_version">Salin versi</string>
+    <string name="btn_copy_changelog">Salin catatan perubahan</string>
     <string name="copied">Tersalin</string>
 
     <!-- Changelog -->
@@ -51,6 +54,14 @@
     <!-- History -->
     <string name="history_title">Riwayat pencarian (%1$d)</string>
     <string name="btn_clear">Bersihkan</string>
+    <string name="btn_manage">Kelola</string>
+    <string name="btn_delete_selected">Hapus (%1$d)</string>
+    <string name="btn_select_all">Pilih semua</string>
+    <string name="btn_done">Selesai</string>
+    <string name="hint_swipe_delete">Geser untuk menghapus</string>
+    <string name="confirm_delete">Hapus catatan ini?</string>
+    <string name="confirm_delete_multiple">Hapus %1$d catatan terpilih?</string>
+    <string name="btn_cancel">Batal</string>
     <string name="history_query">Cari: %1$s \u2192 %2$s</string>
     <string name="history_size">Ukuran: %1$s MB</string>
 
@@ -66,4 +77,32 @@
     <string name="toast_success">Pencarian berhasil</string>
     <string name="toast_no_update">Tidak ada pembaruan ditemukan</string>
     <string name="no_changelog">Catatan perubahan tidak tersedia</string>
+
+    <!-- Payload Dumper -->
+    <string name="payload_dumper">Lihat daftar partisi</string>
+    <string name="payload_loading">Memuat daftar partisi…</string>
+    <string name="parse">Uraikan</string>
+    <string name="error">Kesalahan</string>
+    <string name="dismiss">Tutup</string>
+    <string name="rom_info">Info ROM</string>
+    <string name="file_name">Nama berkas</string>
+    <string name="file_size">Ukuran berkas</string>
+    <string name="partition_list">Daftar partisi</string>
+    <string name="partition_size">Ukuran: %1$s</string>
+    <string name="sha256">SHA256: %1$s</string>
+    <string name="extract">Ekstrak</string>
+    <string name="payload_security_patch">Patch keamanan</string>
+    <string name="payload_build_date">Tanggal build</string>
+    <string name="payload_package_type">Jenis paket</string>
+    <string name="payload_full">Penuh</string>
+    <string name="payload_incremental">Inkremental</string>
+    <string name="payload_block_size">Ukuran blok</string>
+    <string name="payload_partial_update">Pembaruan sebagian</string>
+    <string name="payload_yes">Ya</string>
+    <string name="payload_select_all">Pilih semua</string>
+    <string name="payload_selected_count">Terpilih: %1$d</string>
+    <string name="payload_extract_selected">Ekstrak terpilih</string>
+    <string name="payload_extract_success">%1$s ekstraksi selesai</string>
+    <string name="payload_extract_failed">%1$s ekstraksi gagal</string>
+    <string name="payload_batch_complete">Selesai: %1$d berhasil, %2$d gagal</string>
 </resources>

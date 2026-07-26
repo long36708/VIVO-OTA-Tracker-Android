@@ -22,6 +22,7 @@
     <!-- Version input -->
     <string name="label_sw_version">सिस्टम संस्करण (जैसे 16.1.16.5.W10)</string>
     <string name="hint_sw_version">एन्क्रिप्शन लाइब्रेरी x.x.x प्रारूप वाले पुराने उपकरणों के लिए संस्करण प्राप्ति का समर्थन नहीं करती</string>
+    <string name="custom_version">कस्टम</string>
     <string name="label_sn">SN क्रमांक (वैकल्पिक)</string>
     <string name="label_package_type">पैकेज प्रकार</string>
     <string name="pkg_full">पूर्ण पैकेज</string>
@@ -42,6 +43,8 @@
     <string name="update_date">अपडेट तिथि: %1$s</string>
     <string name="btn_download">डाउनलोड</string>
     <string name="btn_copy_link">लिंक कॉपी करें</string>
+    <string name="btn_copy_version">संस्करण कॉपी करें</string>
+    <string name="btn_copy_changelog">बदलाव लॉग कॉपी करें</string>
     <string name="copied">कॉपी हो गया</string>
 
     <!-- Changelog -->
@@ -51,6 +54,14 @@
     <!-- History -->
     <string name="history_title">खोज इतिहास (%1$d)</string>
     <string name="btn_clear">साफ़ करें</string>
+    <string name="btn_manage">प्रबंधित करें</string>
+    <string name="btn_delete_selected">हटाएं (%1$d)</string>
+    <string name="btn_select_all">सभी चुनें</string>
+    <string name="btn_done">हो गया</string>
+    <string name="hint_swipe_delete">हटाने के लिए स्वाइप करें</string>
+    <string name="confirm_delete">इस रिकॉर्ड को हटाएं?</string>
+    <string name="confirm_delete_multiple">%1$d चयनित रिकॉर्ड हटाएं?</string>
+    <string name="btn_cancel">रद्द करें</string>
     <string name="history_query">खोज: %1$s \u2192 %2$s</string>
     <string name="history_size">आकार: %1$s MB</string>
 
@@ -66,4 +77,32 @@
     <string name="toast_success">खोज सफल</string>
     <string name="toast_no_update">कोई अपडेट नहीं मिला</string>
     <string name="no_changelog">कोई बदलाव लॉग उपलब्ध नहीं</string>
+
+    <!-- Payload Dumper -->
+    <string name="payload_dumper">पार्टिशन सूची देखें</string>
+    <string name="payload_loading">पार्टिशन सूची लोड हो रहा है…</string>
+    <string name="parse">पार्स करें</string>
+    <string name="error">त्रुटि</string>
+    <string name="dismiss">बंद करें</string>
+    <string name="rom_info">ROM जानकारी</string>
+    <string name="file_name">फ़ाइल नाम</string>
+    <string name="file_size">फ़ाइल आकार</string>
+    <string name="partition_list">विभाजन सूची</string>
+    <string name="partition_size">आकार: %1$s</string>
+    <string name="sha256">SHA256: %1$s</string>
+    <string name="extract">निकालें</string>
+    <string name="payload_security_patch">सुरक्षा पैच</string>
+    <string name="payload_build_date">बिल्ड तिथि</string>
+    <string name="payload_package_type">पैकेज प्रकार</string>
+    <string name="payload_full">पूर्ण</string>
+    <string name="payload_incremental">वृद्धिशील</string>
+    <string name="payload_block_size">ब्लॉक आकार</string>
+    <string name="payload_partial_update">आंशिक अपडेट</string>
+    <string name="payload_yes">हाँ</string>
+    <string name="payload_select_all">सभी चुनें</string>
+    <string name="payload_selected_count">चयनित: %1$d</string>
+    <string name="payload_extract_selected">चयनित निकालें</string>
+    <string name="payload_extract_success">%1$s निष्कर्षण पूर्ण</string>
+    <string name="payload_extract_failed">%1$s निष्कर्षण विफल</string>
+    <string name="payload_batch_complete">पूर्ण: %1$d सफल, %2$d विफल</string>
 </resources>

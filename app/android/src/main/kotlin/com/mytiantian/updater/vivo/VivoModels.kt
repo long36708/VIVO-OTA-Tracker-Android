@@ -31,7 +31,9 @@ data class VivoOtaUiState(
     val selectedModelSwVer: String = "",
     val deviceType: String = "phone",
     val softwareVersion: String = "",
-    val androidVersion: Int = 15,
+    val androidVersion: Int = 16,
+    val isCustomAndroidVersion: Boolean = false,
+    val customAndroidVersion: String = "",
     val sn: String = "A0000000000000A",
     val isFullPackage: Boolean = true,
     val isLoading: Boolean = false,
@@ -43,6 +45,8 @@ data class VivoOtaUiState(
     val manualModelSwVer: String = "",
     val manualModelName: String = "",
     val history: List<QueryHistoryEntry> = emptyList(),
+    val historySelectionMode: Boolean = false,
+    val selectedHistory: Set<Long> = emptySet(),
     val toastMessage: String? = null,
     val changelogContent: String? = null
 )

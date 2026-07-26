@@ -77,8 +77,37 @@ class VivoOtaViewModel : ViewModel() {
         }
     }
 
-    fun updateSoftwareVersion(v: String) { _uiState.update { it.copy(softwareVersion = v) } }
-    fun updateAndroidVersion(v: Int) { _uiState.update { it.copy(androidVersion = v) } }
+    fun updateSoftwareVersion(v: String) {
+        val majorVersion = if (v.contains('.')) {
+            v.substringBefore('.').toIntOrNull()
+        } else {
+            v.toIntOrNull()?.takeIf { it in 13..16 }
+        }
+        if (majorVersion != null && majorVersion > 0) {
+            if (majorVersion in 13..16) {
+                _uiState.update { it.copy(softwareVersion = v, androidVersion = majorVersion, isCustomAndroidVersion = false) }
+            } else {
+                _uiState.update { it.copy(softwareVersion = v, androidVersion = majorVersion, isCustomAndroidVersion = true, customAndroidVersion = majorVersion.toString()) }
+            }
+        } else {
+            _uiState.update { it.copy(softwareVersion = v) }
+        }
+    }
+
+    fun updateAndroidVersion(v: Int) {
+        _uiState.update { it.copy(androidVersion = v, isCustomAndroidVersion = false) }
+    }
+
+    fun selectCustomAndroidVersion() {
+        _uiState.update { it.copy(isCustomAndroidVersion = true) }
+    }
+
+    fun updateCustomAndroidVersion(v: String) {
+        val num = v.filter { it.isDigit() }
+        val ver = num.toIntOrNull() ?: 0
+        _uiState.update { it.copy(customAndroidVersion = num, androidVersion = if (ver > 0) ver else it.androidVersion, isCustomAndroidVersion = true) }
+    }
+
     fun updateSn(v: String) { _uiState.update { it.copy(sn = v) } }
     fun updateDeviceType(type: String) { _uiState.update { it.copy(deviceType = type) } }
     fun togglePackageType() { _uiState.update { it.copy(isFullPackage = !it.isFullPackage) } }
@@ -87,6 +116,40 @@ class VivoOtaViewModel : ViewModel() {
     fun updateManualModelSwVer(v: String) { _uiState.update { it.copy(manualModelSwVer = v) } }
     fun updateManualModelName(v: String) { _uiState.update { it.copy(manualModelName = v) } }
     fun clearToast() { _uiState.update { it.copy(toastMessage = null) } }
+
+    fun deleteHistoryEntry(timestamp: Long) {
+        val updated = _uiState.value.history.filterNot { it.timestamp == timestamp }
+        _uiState.update { it.copy(history = updated) }
+        saveHistory(updated)
+    }
+
+    fun toggleHistorySelectionMode() {
+        _uiState.update { it.copy(historySelectionMode = !it.historySelectionMode, selectedHistory = emptySet()) }
+    }
+
+    fun toggleHistorySelection(timestamp: Long) {
+        _uiState.update {
+            val newSet = if (timestamp in it.selectedHistory) it.selectedHistory - timestamp else it.selectedHistory + timestamp
+            it.copy(selectedHistory = newSet)
+        }
+    }
+
+    fun selectAllHistory() {
+        val all = _uiState.value.history.map { it.timestamp }.toSet()
+        _uiState.update { it.copy(selectedHistory = all) }
+    }
+
+    fun deleteSelectedHistory() {
+        val selected = _uiState.value.selectedHistory
+        val updated = _uiState.value.history.filterNot { it.timestamp in selected }
+        _uiState.update { it.copy(history = updated, selectedHistory = emptySet(), historySelectionMode = false) }
+        saveHistory(updated)
+    }
+
+    fun isAllHistorySelected(): Boolean {
+        return _uiState.value.history.isNotEmpty() &&
+            _uiState.value.history.all { it.timestamp in _uiState.value.selectedHistory }
+    }
 
     private fun fetchChangelog(url: String) {
         viewModelScope.launch(Dispatchers.IO) {

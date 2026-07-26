@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.jetbrains.compose)
+    alias(libs.plugins.protobuf)
 }
 
 kotlin {
@@ -20,10 +21,14 @@ dependencies {
     implementation(libs.miuix.preference)
     implementation(compose.foundation)
     implementation(compose.material3)
+    implementation(libs.protobuf.kotlin.lite)
+    implementation(libs.commons.compress)
+    implementation(libs.xz)
+    implementation(libs.okhttp)
 }
 
 android {
-    namespace = ProjectConfig.PACKAGE_NAME
+    namespace = ProjectConfig.NAMESPACE
     compileSdk = ProjectConfig.Android.COMPILE_SDK
     buildToolsVersion = ProjectConfig.Android.BUILD_TOOLS_VERSION
     defaultConfig {
@@ -76,4 +81,22 @@ base {
     archivesName.set(
         ProjectConfig.APP_NAME + "-v" + ProjectConfig.VERSION_NAME + "(" + getGitVersionCode() + ")"
     )
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:4.30.1"
+    }
+    generateProtoTasks {
+        all().forEach { task ->
+            task.builtins {
+                register("java") {
+                    option("lite")
+                }
+                register("kotlin") {
+                    option("lite")
+                }
+            }
+        }
+    }
 }
