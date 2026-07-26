@@ -32,14 +32,13 @@ By loading the native `libvivoseckey.so` library, this app processes the necessa
 ### 📱 Screenshots
 
 <p align="center">
-  <img src="screenshots/home.jpg" width="270" />
-  <img src="screenshots/manual_mode.jpg" width="270" />
-  <img src="screenshots/query_result.jpg" width="270" />
+  <img src="screenshots/65D5A1A058E8E992FE73B5B500FDA658.png" width="270" />
+  <img src="screenshots/A5A71974A24749CDEF5E677AF837CC22.png" width="270" />
+  <img src="screenshots/AC65596A2638E9AAB5C67BB97E672571.png" width="270" />
 </p>
 <p align="center">
-  <img src="screenshots/changelog.jpg" width="270" />
-  <img src="screenshots/history.jpg" width="270" />
-  <img src="screenshots/about.jpg" width="270" />
+  <img src="screenshots/B5E5DFE5EB57C6DFDA6F9F16D5390756.png" width="270" />
+  <img src="screenshots/EEBDA79CEB367C46886FB3F55E32F377.png" width="270" />
 </p>
 
 ---
