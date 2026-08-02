@@ -908,7 +908,13 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(stringResource(R.string.app_name), fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                    Text("v1.3.0", fontSize = 13.sp, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                    val appVersion = "v" + com.mytiantian.updater.AndroidAppContext.versionName
+                    val appVersionCode = com.mytiantian.updater.AndroidAppContext.versionCode
+                    Text(
+                        text = "$appVersion ($appVersionCode)",
+                        fontSize = 13.sp,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
                     HorizontalDivider()
                     Spacer(modifier = Modifier.height(10.dp))
