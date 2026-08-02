@@ -1,5 +1,6 @@
 package com.mytiantian.updater.vivo.payload
 
+import android.util.Log
 import chromeos_update_engine.UpdateMetadata
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -93,12 +94,31 @@ object PayloadUtil {
     }
 
     fun getPartitionInfoList(payload: Payload): List<PartitionInfo> {
-        return payload.deltaArchiveManifest.partitionsList.map {
+        val blockSize = payload.deltaArchiveManifest.blockSize
+        val srcCount = payload.deltaArchiveManifest.partitionsList.size
+        Log.i("VivoPayload", "getPartitionInfoList: input partitions=$srcCount, blockSize=$blockSize")
+        return payload.deltaArchiveManifest.partitionsList.map { partition ->
+            // 真实镜像大小：所有 dst extents 占用的块数 * blockSize。
+            // 某些分区（纯 ZERO / 无数据）operationsList 或 dstExtentsList 可能为空，需做保护。
+            val rawSize = partition.operationsList
+                .flatMap { it.dstExtentsList }
+                .mapNotNull { extent -> extent?.let { it.startBlock + it.numBlocks } }
+                .maxOrNull()
+                ?.let { (it * blockSize).toLong() }
+                ?: partition.newPartitionInfo.size
+
+            val typeStats = partition.operationsList
+                .groupingBy { it.type.name }
+                .eachCount()
+
             PartitionInfo(
-                it.partitionName,
-                it.newPartitionInfo.size,
-                (it.operationsList[it.operationsList.size - 1].dataOffset + it.operationsList[it.operationsList.size - 1].dataLength) - it.operationsList[0].dataOffset,
-                it.newPartitionInfo.hash.toByteArray().toHexString()
+                partitionName = partition.partitionName,
+                size = partition.newPartitionInfo.size,
+                rawSize = rawSize,
+                sha256 = partition.newPartitionInfo.hash.toByteArray().toHexString(),
+                operationsCount = partition.operationsList.size,
+                mergeOperationsCount = partition.mergeOperationsList.size,
+                typeStats = typeStats
             )
         }
     }
@@ -205,14 +225,37 @@ object PayloadUtil {
         httpUtil.readSync(centralDirectory)
 
         val localHeaderOffset = locateLocalFileHeader(centralDirectory, fileName)
+        Log.i("VivoPayload", "getPayloadOffset: cenOffset=${centralDirectoryInfo.offset}, cenSize=${centralDirectoryInfo.size}, localHeaderOffset=$localHeaderOffset")
         if (localHeaderOffset < 0) {
             throw IOException("payload.bin not found in zip")
         }
 
-        val localHeaderBytes = ByteArray(256)
+        // local header 读取缓冲需足够大：vivo 的 payload.bin 的 local header
+        // 可能包含极长的 fileName / extra field（实测可达数万字节），
+        // 读太小会导致 locateLocalFileOffset 越界。用 256KB 保险。
+        val localHeaderBytes = ByteArray(256 * 1024)
         httpUtil.seek(localHeaderOffset)
         httpUtil.readSync(localHeaderBytes)
-        return locateLocalFileOffset(localHeaderBytes) + localHeaderOffset
+        val headHex = localHeaderBytes.take(16).joinToString(" ") { "%02x".format(it) }
+        Log.i("VivoPayload", "localHeader @$localHeaderOffset first16=$headHex")
+        val off = locateLocalFileOffset(localHeaderBytes)
+        if (off < 0) {
+            Log.e("VivoPayload", "localHeader parse failed, first16=$headHex")
+            throw IOException("Failed to parse payload.bin local header")
+        }
+        val probeOffset = localHeaderOffset + off
+        val probe = ByteArray(32)
+        httpUtil.seek(probeOffset)
+        val probeRead = httpUtil.readSync(probe)
+        val probeHex = probe.take(probeRead).joinToString(" ") { "%02x".format(it) }
+        Log.i("VivoPayload", "probe @$probeOffset read=$probeRead hex=$probeHex")
+        // 也探针附近 ±64 字节范围，确认 CrAU(43 72 41 55) 真实位置
+        val before = ByteArray(64)
+        httpUtil.seek((probeOffset - 64).coerceAtLeast(0))
+        val beforeRead = httpUtil.readSync(before)
+        val beforeHex = before.take(beforeRead).joinToString(" ") { "%02x".format(it) }
+        Log.i("VivoPayload", "probeBefore @${probeOffset - 64} read=$beforeRead hex=$beforeHex")
+        return off + localHeaderOffset
     }
 
     private fun locateCentralDirectory(byteArray: ByteArray, fileLength: Long): FileInfo {
@@ -264,7 +307,9 @@ object PayloadUtil {
                 val localHeaderOffsetTemp = byteBuffer.getInt().toUInt().toLong()
                 val fileNameBytes = ByteArray(fileNameLength)
                 byteBuffer.get(fileNameBytes)
-                if (fileName == String(fileNameBytes, Charsets.UTF_8)) {
+                val entryName = String(fileNameBytes, Charsets.UTF_8)
+                Log.d("VivoPayload", "central entry: '$entryName' -> localOffset=$localHeaderOffsetTemp")
+                if (entryName.endsWith("payload.bin") || fileName == entryName) {
                     localHeaderOffset = localHeaderOffsetTemp
                     break
                 }
@@ -281,11 +326,19 @@ object PayloadUtil {
         var localFileOffset: Long = -1
 
         if (byteBuffer.getInt().toLong() == LOCSIG) {
+            // Local file header 字段布局(从 0 起)：
+            // LOCSIG(4) + version(2) + flag(2) + method(2) + modTime(2) + modDate(2)
+            // + crc32(4) + compSize(4) + uncompSize(4) + fileNameLength(2) [偏移 26]
+            // + extraFieldLength(2) [偏移 28]。getInt() 已消耗前 4 字节(position=4)，
+            // 需再跳 22 字节才能到达 fileNameLength 字段(绝对偏移 26)。
             byteBuffer.position(byteBuffer.position() + 22)
             val fileNameLength = byteBuffer.getShort().toUInt().toInt()
             val extraFieldLength = byteBuffer.getShort().toUInt().toInt()
-            byteBuffer.position(byteBuffer.position() + fileNameLength + extraFieldLength)
-            localFileOffset = byteBuffer.position().toLong()
+            // 边界保护：文件名 + extra 超出缓冲区说明不是合法 local header，返回 -1。
+            val dataOffset = byteBuffer.position() + fileNameLength + extraFieldLength
+            if (dataOffset <= byteBuffer.capacity()) {
+                localFileOffset = dataOffset.toLong()
+            }
         }
         return localFileOffset
     }

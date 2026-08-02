@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -26,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.mutableStateOf
@@ -36,11 +39,16 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.window.Dialog
 
 @Composable
 fun PayloadDumperScreen(
@@ -163,6 +171,31 @@ fun PayloadDumperScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                 }
 
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TextField(
+                            insideMargin = DpSize(16.dp, 24.dp),
+                            value = uiState.inputUrl,
+                            onValueChange = { viewModel.updateInputUrl(it) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = stringResource(R.string.payload_input_hint),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
+                        )
+                        Button(
+                            onClick = { viewModel.submitUrl() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColorsPrimary(),
+                            enabled = !uiState.isParsing
+                        ) {
+                            Text(stringResource(R.string.payload_parse))
+                        }
+                    }
+                }
+
                 uiState.archiveInfo?.let { archiveInfo ->
                     item {
                         Card(
@@ -232,6 +265,7 @@ fun PayloadDumperScreen(
                             isSelected = uiState.selectedPartitions.contains(partitionInfo.partitionName),
                             isExtracting = uiState.isExtracting,
                             onToggleSelect = { viewModel.toggleSelection(partitionInfo.partitionName) },
+                            onItemClick = { viewModel.selectPartition(partitionInfo.partitionName) },
                             onExtract = { viewModel.extractPartition(partitionInfo) }
                         )
                     }
@@ -242,6 +276,14 @@ fun PayloadDumperScreen(
                 }
             }
         }
+    }
+
+    uiState.selectedPartition?.let { partitionInfo ->
+        PartitionDetailDialog(
+            partitionInfo = partitionInfo,
+            onDismiss = { viewModel.clearSelectedPartition() },
+            onExtract = { viewModel.extractPartition(partitionInfo) }
+        )
     }
 }
 
@@ -272,6 +314,7 @@ private fun PartitionItem(
     isSelected: Boolean,
     isExtracting: Boolean,
     onToggleSelect: () -> Unit,
+    onItemClick: () -> Unit,
     onExtract: () -> Unit
 ) {
     val context = LocalContext.current
@@ -279,7 +322,7 @@ private fun PartitionItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onToggleSelect() }
+            .clickable { onItemClick() }
     ) {
         Row(
             modifier = Modifier
@@ -300,7 +343,12 @@ private fun PartitionItem(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = stringResource(R.string.partition_size, formatFileSize(partitionInfo.size)),
+                    text = stringResource(
+                        R.string.partition_size_ops,
+                        formatFileSize(partitionInfo.size),
+                        partitionInfo.operationsCount,
+                        partitionInfo.mergeOperationsCount
+                    ),
                     fontSize = 12.sp,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                 )
@@ -342,6 +390,76 @@ private fun PartitionItem(
         }
     }
 }
+
+@Composable
+private fun PartitionDetailDialog(
+    partitionInfo: PartitionInfo,
+    onDismiss: () -> Unit,
+    onExtract: () -> Unit
+) {
+    val context = LocalContext.current
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Bottom,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(20.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = partitionInfo.partitionName,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(4.dp))
+                    InfoRow(stringResource(R.string.partition_size), formatFileSize(partitionInfo.size))
+                    InfoRow(stringResource(R.string.partition_raw_size), formatFileSize(partitionInfo.rawSize))
+                    InfoRow(
+                        stringResource(R.string.partition_ops),
+                        stringResource(R.string.partition_ops_value, partitionInfo.operationsCount, partitionInfo.mergeOperationsCount)
+                    )
+                    if (partitionInfo.sha256.isNotEmpty()) {
+                        InfoRow(stringResource(R.string.sha256_full), partitionInfo.sha256)
+                    }
+                    if (partitionInfo.typeStats.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.partition_op_types),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        partitionInfo.typeStats.toList()
+                            .sortedByDescending { it.second }
+                            .forEach { (type, count) ->
+                                InfoRow(type, count.toString())
+                            }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            onExtract()
+                            onDismiss()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColorsPrimary()
+                    ) {
+                        Text(stringResource(R.string.extract))
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 private fun formatFileSize(bytes: Long): String {
     return when {

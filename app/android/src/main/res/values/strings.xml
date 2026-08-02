@@ -99,6 +99,14 @@
     <string name="partition_size">Size: %1$s</string>
     <string name="sha256">SHA256: %1$s</string>
     <string name="extract">Extract</string>
+    <string name="payload_input_hint">Paste OTA payload / zip URL</string>
+    <string name="payload_parse">Parse</string>
+    <string name="partition_size_ops">Size: %1$s · Ops: %2$d · Merge: %3$d</string>
+    <string name="partition_raw_size">Raw size</string>
+    <string name="partition_ops">Operations</string>
+    <string name="partition_ops_value">%1$d (merge: %2$d)</string>
+    <string name="sha256_full">SHA256</string>
+    <string name="partition_op_types">Operation types</string>
     <string name="payload_security_patch">Security patch</string>
     <string name="payload_build_date">Build date</string>
     <string name="payload_package_type">Package type</string>

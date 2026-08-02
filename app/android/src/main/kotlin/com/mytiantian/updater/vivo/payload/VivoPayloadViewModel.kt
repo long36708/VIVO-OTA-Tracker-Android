@@ -1,6 +1,7 @@
 package com.mytiantian.updater.vivo.payload
 
 import android.os.Environment
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -23,6 +24,19 @@ class VivoPayloadViewModel : ViewModel() {
 
     private var currentPayload: Payload? = null
 
+    /** 输入框中的链接文本，供界面双向绑定。 */
+    fun updateInputUrl(url: String) {
+        _uiState.value = _uiState.value.copy(inputUrl = url)
+    }
+
+    /** 在输入框中手动提交链接并解析。 */
+    fun submitUrl() {
+        val target = _uiState.value.inputUrl.trim()
+        if (target.isEmpty()) return
+        if (_uiState.value.pathOrUrl == target && _uiState.value.partitions.isNotEmpty()) return
+        parsePayload(target)
+    }
+
     /** 从查询结果直接带入下载链接，界面打开后自动解析。 */
     fun parseFromUrl(url: String) {
         val target = url.trim()
@@ -30,13 +44,24 @@ class VivoPayloadViewModel : ViewModel() {
         if (_uiState.value.pathOrUrl == target && _uiState.value.partitions.isNotEmpty()) return
         _uiState.value = _uiState.value.copy(
             pathOrUrl = target,
+            inputUrl = target,
             isParsing = false,
             error = null,
             archiveInfo = null,
             partitions = emptyList(),
             filteredPartitions = emptyList(),
-            selectedPartitions = emptySet()
+            selectedPartitions = emptySet(),
+            selectedPartition = null
         )
+    }
+
+    fun selectPartition(partitionName: String) {
+        val partition = _uiState.value.partitions.find { it.partitionName == partitionName }
+        _uiState.value = _uiState.value.copy(selectedPartition = partition)
+    }
+
+    fun clearSelectedPartition() {
+        _uiState.value = _uiState.value.copy(selectedPartition = null)
     }
 
     fun toggleSelection(partitionName: String) {
@@ -77,16 +102,22 @@ class VivoPayloadViewModel : ViewModel() {
                 return@launch
             }
             _uiState.value = _uiState.value.copy(
+                pathOrUrl = target,
+                inputUrl = target,
                 isParsing = true,
                 error = null,
                 archiveInfo = null,
                 partitions = emptyList(),
                 filteredPartitions = emptyList(),
-                selectedPartitions = emptySet()
+                selectedPartitions = emptySet(),
+                selectedPartition = null
             )
             try {
+                Log.i("VivoPayload", "parseFromUrl: start, target=$target")
                 VivoPayloadHttpUtil.init(target)
+                Log.i("VivoPayload", "parseFromUrl: http init done, fileLength=${VivoPayloadHttpUtil.length()}, fileName=${VivoPayloadHttpUtil.getFileName()}")
                 val payloadOffset = PayloadUtil.getPayloadOffset(target)
+                Log.i("VivoPayload", "parseFromUrl: payloadOffset=$payloadOffset")
                 val payload = PayloadUtil.initPayload(
                     VivoPayloadHttpUtil.getFileName(),
                     VivoPayloadHttpUtil,
@@ -94,7 +125,9 @@ class VivoPayloadViewModel : ViewModel() {
                 ).copy(sourcePath = target)
 
                 currentPayload = payload
+                Log.i("VivoPayload", "parseFromUrl: initPayload done, manifest partitions=${payload.deltaArchiveManifest.partitionsList.size}, blockSize=${payload.deltaArchiveManifest.blockSize}")
                 val partitionList = PayloadUtil.getPartitionInfoList(payload)
+                Log.i("VivoPayload", "parseFromUrl: getPartitionInfoList done, size=${partitionList.size}")
                 val manifest = payload.deltaArchiveManifest
                 val archiveInfo = ArchiveInfo(
                     fileName = payload.fileName,
@@ -113,6 +146,7 @@ class VivoPayloadViewModel : ViewModel() {
                     isParsing = false
                 )
             } catch (e: Exception) {
+                Log.e("VivoPayload", "parseFromUrl FAILED: ${e.message}", e)
                 _uiState.value = _uiState.value.copy(
                     isParsing = false,
                     error = e.message ?: "Unknown error"

@@ -92,6 +92,14 @@
     <string name="partition_size">大小：%1$s</string>
     <string name="sha256">SHA256：%1$s</string>
     <string name="extract">提取</string>
+    <string name="payload_input_hint">粘贴 OTA payload / zip 链接</string>
+    <string name="payload_parse">解析</string>
+    <string name="partition_size_ops">大小：%1$s · 操作数：%2$d · 合并：%3$d</string>
+    <string name="partition_raw_size">原始大小</string>
+    <string name="partition_ops">操作</string>
+    <string name="partition_ops_value">%1$d（合并：%2$d）</string>
+    <string name="sha256_full">SHA256</string>
+    <string name="partition_op_types">操作类型</string>
     <string name="payload_security_patch">安全补丁</string>
     <string name="payload_build_date">构建日期</string>
     <string name="payload_package_type">包类型</string>

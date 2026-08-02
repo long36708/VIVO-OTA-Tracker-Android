@@ -24,6 +24,9 @@ data class PartitionInfo(
     val size: Long,
     val rawSize: Long,
     val sha256: String,
+    val operationsCount: Int = 0,
+    val mergeOperationsCount: Int = 0,
+    val typeStats: Map<String, Int> = emptyMap(),
     val isDownloading: Boolean = false,
     val progress: Float = 0f,
 )
@@ -45,6 +48,7 @@ data class ArchiveInfo(
 
 data class PayloadDumperUiState(
     val pathOrUrl: String = "",
+    val inputUrl: String = "",
     val archiveInfo: ArchiveInfo? = null,
     val partitions: List<PartitionInfo> = emptyList(),
     val filteredPartitions: List<PartitionInfo> = emptyList(),
