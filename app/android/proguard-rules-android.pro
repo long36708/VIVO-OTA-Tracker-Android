@@ -11,6 +11,13 @@
 }
 -keep class com.mytiantian.updater.** { *; }
 
+# Vivo SecKey SDK (libvivoseckey.so JNI engine)
+# 必须原样保留，否则 R8 混淆/裁剪后 SDKCipherNative.init() 失败，
+# UI 会一直卡在"正在初始化加密引擎"。
+-keep class com.vivo.seckeysdk.** { *; }
+-keep class com.vivo.seckeysdk.utils.** { *; }
+-dontwarn com.vivo.seckeysdk.**
+
 # OkHttp
 -dontwarn okhttp3.**
 -dontwarn okio.**
