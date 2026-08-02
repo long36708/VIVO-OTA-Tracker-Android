@@ -27,6 +27,7 @@
     <string name="label_package_type">Loại gói</string>
     <string name="pkg_full">Gói đầy đủ</string>
     <string name="pkg_incremental">Gói tăng dần</string>
+    <string name="pkg_locked_incremental">Kênh Trial / Beta / Alpha chỉ hỗ trợ gói tăng dần</string>
 
     <!-- Query -->
     <string name="btn_query">Tra cứu cập nhật OTA</string>

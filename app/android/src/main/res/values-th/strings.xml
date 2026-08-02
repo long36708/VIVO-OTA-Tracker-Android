@@ -27,6 +27,7 @@
     <string name="label_package_type">ประเภทแพ็กเกจ</string>
     <string name="pkg_full">แพ็กเกจเต็ม</string>
     <string name="pkg_incremental">แบบเพิ่มเติม</string>
+    <string name="pkg_locked_incremental">ช่องทาง Trial / Beta / Alpha รองรับเฉพาะแพ็กเกจแบบเพิ่มเติม</string>
 
     <!-- Query -->
     <string name="btn_query">ค้นหาอัปเดต OTA</string>

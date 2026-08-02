@@ -27,6 +27,7 @@
     <string name="label_package_type">包類型</string>
     <string name="pkg_full">完整包</string>
     <string name="pkg_incremental">增量包</string>
+    <string name="pkg_locked_incremental">嘗鮮 / 公測 / 內測通道僅支援增量包</string>
 
     <!-- Query -->
     <string name="btn_query">查詢 OTA 更新</string>

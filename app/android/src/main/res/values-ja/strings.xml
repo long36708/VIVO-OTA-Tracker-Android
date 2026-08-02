@@ -27,6 +27,7 @@
     <string name="label_package_type">パッケージタイプ</string>
     <string name="pkg_full">フルパッケージ</string>
     <string name="pkg_incremental">差分</string>
+    <string name="pkg_locked_incremental">Trial / Beta / Alpha チャンネルは差分パッケージのみ対応</string>
 
     <!-- Query -->
     <string name="btn_query">OTA 更新を検索</string>

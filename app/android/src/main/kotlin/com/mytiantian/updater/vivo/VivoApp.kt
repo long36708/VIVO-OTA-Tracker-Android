@@ -194,6 +194,7 @@ fun VivoApp(viewModel: VivoOtaViewModel = viewModel()) {
 
                 item { VersionInputCard(state, viewModel) }
                 item { SnInputCard(state, viewModel) }
+                item { ChannelCard(state, viewModel) }
                 item { PackageTypeCard(state, viewModel) }
 
                 item { QueryButton(state, viewModel) }
@@ -451,12 +452,45 @@ private fun SnInputCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
 private fun PackageTypeCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
     val fullPkg = stringResource(R.string.pkg_full)
     val incrementalPkg = stringResource(R.string.pkg_incremental)
+    // 尝鲜 / 公测 / 内测通道仅允许增量包
+    val packageLocked = state.queryChannel != "NORMAL"
+    val lockHint = stringResource(R.string.pkg_locked_incremental)
     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         OverlayDropdownPreference(
             title = stringResource(R.string.label_package_type),
             items = listOf(fullPkg, incrementalPkg),
             selectedIndex = if (state.isFullPackage) 0 else 1,
-            onSelectedIndexChange = { viewModel.togglePackageType() },
+            onSelectedIndexChange = { if (!packageLocked) viewModel.togglePackageType() },
+            enabled = !packageLocked,
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (packageLocked) {
+            Text(
+                text = lockHint,
+                fontSize = 12.sp,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChannelCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
+    val channels = listOf(
+        stringResource(R.string.channel_normal),
+        stringResource(R.string.channel_trial),
+        stringResource(R.string.channel_beta),
+        stringResource(R.string.channel_alpha)
+    )
+    val channelValues = listOf("NORMAL", "TRIAL", "BETA", "ALPHA")
+    val selectedIndex = channelValues.indexOf(state.queryChannel).takeIf { it >= 0 } ?: 0
+    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+        OverlayDropdownPreference(
+            title = stringResource(R.string.label_query_channel),
+            items = channels,
+            selectedIndex = selectedIndex,
+            onSelectedIndexChange = { viewModel.updateQueryChannel(channelValues[it]) },
             modifier = Modifier.fillMaxWidth()
         )
     }
@@ -504,6 +538,14 @@ private fun ResultCard(
     val haptic = LocalHapticFeedback.current
     val copiedMsg = stringResource(R.string.copied)
     val firmwareTypeStr = stringResource(if (isFullPackage) R.string.pkg_full else R.string.pkg_incremental)
+    val channelStr = stringResource(
+        when (result.channel) {
+            "TRIAL" -> R.string.channel_trial
+            "BETA" -> R.string.channel_beta
+            "ALPHA" -> R.string.channel_alpha
+            else -> R.string.channel_normal
+        }
+    )
 
     fun copyToClipboard(label: String, text: String) {
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -536,6 +578,7 @@ private fun ResultCard(
             }
             Text(stringResource(R.string.label_android_version) + ": $androidVersion", color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
             Text(stringResource(R.string.label_package_type) + ": $firmwareTypeStr", color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+            Text(stringResource(R.string.label_query_channel) + ": $channelStr", color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
             if (result.securityPatch.isNotEmpty() && result.securityPatch != "(Not found)") {
                 Text(
                     stringResource(R.string.security_patch, result.securityPatch),
@@ -729,6 +772,17 @@ private fun HistoryEntrySelectionRow(
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 fontSize = 13.sp
             )
+            if (entry.channel != "NORMAL") {
+                val ch = stringResource(
+                    when (entry.channel) {
+                        "TRIAL" -> R.string.channel_trial
+                        "BETA" -> R.string.channel_beta
+                        "ALPHA" -> R.string.channel_alpha
+                        else -> R.string.channel_normal
+                    }
+                )
+                Text(ch, color = MiuixTheme.colorScheme.primary, fontSize = 12.sp)
+            }
             if (entry.fileSize.isNotEmpty()) {
                 Text(
                     stringResource(R.string.history_size, entry.fileSize),
@@ -801,6 +855,17 @@ private fun SwipeToDeleteHistoryEntry(
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 fontSize = 13.sp
             )
+            if (entry.channel != "NORMAL") {
+                val ch = stringResource(
+                    when (entry.channel) {
+                        "TRIAL" -> R.string.channel_trial
+                        "BETA" -> R.string.channel_beta
+                        "ALPHA" -> R.string.channel_alpha
+                        else -> R.string.channel_normal
+                    }
+                )
+                Text(ch, color = MiuixTheme.colorScheme.primary, fontSize = 12.sp)
+            }
             if (entry.fileSize.isNotEmpty()) {
                 Text(
                     stringResource(R.string.history_size, entry.fileSize),

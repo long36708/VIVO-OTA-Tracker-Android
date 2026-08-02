@@ -27,6 +27,7 @@
     <string name="label_package_type">패키지 유형</string>
     <string name="pkg_full">전체 패키지</string>
     <string name="pkg_incremental">증분</string>
+    <string name="pkg_locked_incremental">Trial / Beta / Alpha 채널은 증분 패키지만 지원합니다</string>
 
     <!-- Query -->
     <string name="btn_query">OTA 업데이트 조회</string>

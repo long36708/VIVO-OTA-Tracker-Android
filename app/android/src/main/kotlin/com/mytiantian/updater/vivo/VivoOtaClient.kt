@@ -26,6 +26,16 @@ class VivoOtaClient(private val context: Context) {
         private const val TOKEN_NATIVE = "jnisgmain_v2@com.bbk.updater"
         private const val OTA_URL = "https://sysupgrade.vivo.com.cn/vgc/v2/getVgcAndPatch.do"
         private const val REDIR_URL = "https://sysupgrade.vivo.com.cn/pk/redirPost.do"
+        private const val TASTE_URL = "https://sysupgrade.vivo.com.cn/upgrade/trial/getTastePk"
+        private const val BETA_URL = "https://sysupgrade.vivo.com.cn/beta/query"
+        private const val ALPHA_URL = "https://sysupgrade.vivo.com.cn/alpha/getAlphaState"
+    }
+
+    enum class QueryChannel(val value: String) {
+        NORMAL("NORMAL"),
+        TRIAL("TRIAL"),
+        BETA("BETA"),
+        ALPHA("ALPHA")
     }
 
     fun initCrypto(): Boolean {
@@ -40,7 +50,8 @@ class VivoOtaClient(private val context: Context) {
         androidVersion: Int,
         isPhone: Boolean,
         isFull: Boolean,
-        sn: String = "A0000000000000A"
+        sn: String = "A0000000000000A",
+        channel: QueryChannel = QueryChannel.NORMAL
     ): VivoOtaResult {
         val hwVer = codename + "MA"
         val fullSwVersion = if (swVersion.contains(".W")) "$swVersion.V000L1" else swVersion
@@ -122,15 +133,70 @@ class VivoOtaClient(private val context: Context) {
             p["radiotype"] = "A"
         }
 
-        val rawParams = joinParams(p)
-        Log.d(TAG, "Request params: $rawParams")
+        // 尝鲜/公测/内测通道：去掉正式版专属字段，改用 taste 字段集
+        val isTaste = channel != QueryChannel.NORMAL
+        if (isTaste) {
+            p.remove("isMan")
+            p.remove("protocalversion")
+            p.remove("checkTrige")
+            p.remove("isstlifeover")
+            p["trigger"] = "verfy"
+            p["isSupportVgcTaste"] = 1
+            p["isSupportShowNote"] = 1
+            p["hwFingerprint"] = ""
+        }
 
-        val updateResponse = sendFreshEncryptedRequest(rawParams)
+        val rawParams = joinParams(p)
+        Log.d(TAG, "Request params (channel=${channel.value}): $rawParams")
+
+        // 公测/内测先查询报名状态（beta/query 或 alpha/getAlphaState）
+        if (channel == QueryChannel.BETA || channel == QueryChannel.ALPHA) {
+            val betaParams = buildBetaBaseParams(
+                model = codename,
+                hwVer = hwVer,
+                swVer = swVersion,
+                cy = "CN-ZH",
+                cu = "N",
+                dType = if (isPhone) "phone" else "tablet",
+                vgcCu = "V000",
+                imei = "000000000000000",
+                snp = sn,
+                isPhone = isPhone,
+                romVer = fullSwVersion
+            ) + if (channel == QueryChannel.BETA) "&manual=1&push=0" else "&manual=1"
+            val stateJson = if (channel == QueryChannel.BETA) {
+                sendBetaRequest(betaParams)
+            } else {
+                sendAlphaRequest(betaParams)
+            }
+            Log.d(TAG, "${channel.value} state: $stateJson")
+        }
+
+        val updateResponse = if (isTaste) sendTasteRequest(rawParams) else sendFreshEncryptedRequest(rawParams)
         if (updateResponse.startsWith("[Error]")) {
             throw RuntimeException(updateResponse)
         }
 
-        return parseResult(updateResponse, isPhone, modelSwVer, codename, swVersion)
+        return parseResult(updateResponse, isPhone, modelSwVer, codename, swVersion, channel)
+    }
+
+    /** 公测/内测共用参数集，与 PC 版 buildBetaBaseParams 对应。 */
+    private fun buildBetaBaseParams(
+        model: String, hwVer: String, swVer: String,
+        cy: String, cu: String, dType: String, vgcCu: String,
+        imei: String, snp: String, isPhone: Boolean, romVer: String
+    ): String {
+        val sb = StringBuilder()
+        sb.append("model=").append(model)
+        sb.append("&hwVer=").append(hwVer)
+        sb.append("&swVer=").append(swVer)
+        sb.append("&cy=").append(cy)
+        sb.append("&cu=").append(cu)
+        sb.append("&dType=").append(dType)
+        sb.append("&vgcCu=").append(vgcCu)
+        sb.append(if (isPhone) "&imei=$imei" else "&snp=$snp")
+        sb.append("&romVer=").append(romVer)
+        return sb.toString()
     }
 
     private fun parseResult(
@@ -138,7 +204,8 @@ class VivoOtaClient(private val context: Context) {
         isPhone: Boolean,
         modelSwVer: String,
         codename: String,
-        swVersion: String
+        swVersion: String,
+        channel: QueryChannel = QueryChannel.NORMAL
     ): VivoOtaResult {
         Log.d(TAG, "Raw OTA response: $updateResponse")
 
@@ -194,6 +261,7 @@ class VivoOtaClient(private val context: Context) {
             securityPatch = securityPatch,
             updateDate = updateDate,
             md5 = md5,
+            channel = channel.value,
             rawResponse = updateResponse
         )
     }
@@ -341,6 +409,39 @@ class VivoOtaClient(private val context: Context) {
     private fun requestRedirPost(params: String): String {
         val jvqParam = encryptToJvq(params)
         val response = httpPost(REDIR_URL, "jvq_param=$jvqParam")
+        return if (!response.startsWith("ACw") && !response.startsWith("ACo")) {
+            "[Error] $response"
+        } else {
+            decryptResponse(response)
+        }
+    }
+
+    // 尝鲜/公测/内测通道的尝鲜包查询（getTastePk），与 PC 版 sendTasteRequest 对应
+    private fun sendTasteRequest(plaintext: String): String {
+        val jvqParam = encryptToJvq(plaintext)
+        val response = httpPost(TASTE_URL, "jvq_param=$jvqParam")
+        return if (!response.startsWith("ACw") && !response.startsWith("ACo")) {
+            "[Error] $response"
+        } else {
+            decryptResponse(response)
+        }
+    }
+
+    // 公测报名状态查询（beta/query）
+    private fun sendBetaRequest(params: String): String {
+        val jvqParam = encryptToJvq(params)
+        val response = httpPost(BETA_URL, "jvq_param=$jvqParam")
+        return if (!response.startsWith("ACw") && !response.startsWith("ACo")) {
+            "[Error] $response"
+        } else {
+            decryptResponse(response)
+        }
+    }
+
+    // 内测报名状态查询（alpha/getAlphaState）
+    private fun sendAlphaRequest(params: String): String {
+        val jvqParam = encryptToJvq(params)
+        val response = httpPost(ALPHA_URL, "jvq_param=$jvqParam")
         return if (!response.startsWith("ACw") && !response.startsWith("ACo")) {
             "[Error] $response"
         } else {

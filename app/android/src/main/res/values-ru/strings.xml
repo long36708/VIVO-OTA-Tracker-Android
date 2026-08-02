@@ -27,6 +27,7 @@
     <string name="label_package_type">Тип пакета</string>
     <string name="pkg_full">Полный пакет</string>
     <string name="pkg_incremental">Инкрементальный</string>
+    <string name="pkg_locked_incremental">В каналах Trial / Beta / Alpha поддерживаются только инкрементальные пакеты</string>
 
     <!-- Query -->
     <string name="btn_query">Запросить OTA-обновление</string>
