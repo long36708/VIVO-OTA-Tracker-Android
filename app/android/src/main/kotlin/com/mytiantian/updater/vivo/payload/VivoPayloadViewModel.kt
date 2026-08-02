@@ -33,8 +33,18 @@ class VivoPayloadViewModel : ViewModel() {
     fun submitUrl() {
         val target = _uiState.value.inputUrl.trim()
         if (target.isEmpty()) return
-        if (_uiState.value.pathOrUrl == target && _uiState.value.partitions.isNotEmpty()) return
-        parsePayload(target)
+        // 把输入框内容设为解析目标，并清掉上一次的结果，确保用新地址解析。
+        _uiState.value = _uiState.value.copy(
+            pathOrUrl = target,
+            parseRequestId = _uiState.value.parseRequestId + 1,
+            isParsing = false,
+            error = null,
+            archiveInfo = null,
+            partitions = emptyList(),
+            filteredPartitions = emptyList(),
+            selectedPartitions = emptySet(),
+            selectedPartition = null
+        )
     }
 
     /** 从查询结果直接带入下载链接，界面打开后自动解析。 */
@@ -45,6 +55,7 @@ class VivoPayloadViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(
             pathOrUrl = target,
             inputUrl = target,
+            parseRequestId = _uiState.value.parseRequestId + 1,
             isParsing = false,
             error = null,
             archiveInfo = null,
@@ -146,12 +157,28 @@ class VivoPayloadViewModel : ViewModel() {
                     isParsing = false
                 )
             } catch (e: Exception) {
+                val msg = mapErrorMessage(e.message)
                 Log.e("VivoPayload", "parseFromUrl FAILED: ${e.message}", e)
                 _uiState.value = _uiState.value.copy(
                     isParsing = false,
-                    error = e.message ?: "Unknown error"
+                    error = msg
                 )
+                _toastEvent.emit(PayloadToast.Error(msg))
             }
+        }
+    }
+
+    /**
+     * 把底层解析异常映射为用户友好的提示文案。
+     * 解析层用特定标记文案区分错误类型，这里转成易懂的中文说明。
+     */
+    private fun mapErrorMessage(raw: String?): String {
+        return when (raw) {
+            "NOT_A_PAYLOAD_ZIP" ->
+                "这不是 A/B 增量包（payload.bin 不存在）。该 OTA 包可能是 recovery 全量包，无法用此工具解析。"
+            "NOT_A_VALID_ZIP" ->
+                "链接指向的文件不是有效的 OTA zip，请检查链接或文件是否完整。"
+            else -> raw ?: "解析失败，请重试"
         }
     }
 

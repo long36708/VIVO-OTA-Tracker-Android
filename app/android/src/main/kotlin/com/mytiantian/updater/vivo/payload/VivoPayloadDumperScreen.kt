@@ -24,6 +24,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -58,21 +59,22 @@ fun PayloadDumperScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    LaunchedEffect(uiState.pathOrUrl) {
-        if (uiState.pathOrUrl.isNotBlank() && !uiState.isParsing && uiState.partitions.isEmpty()) {
+    LaunchedEffect(uiState.parseRequestId) {
+        if (uiState.parseRequestId > 0 && uiState.pathOrUrl.isNotBlank()) {
             viewModel.parsePayload(uiState.pathOrUrl)
         }
     }
 
     LaunchedEffect(Unit) {
-        viewModel.toastEvent.collect { toast ->
-            val msg = when (toast) {
-                is PayloadToast.ExtractSuccess -> context.getString(R.string.payload_extract_success, toast.partitionName)
-                is PayloadToast.ExtractFailed -> context.getString(R.string.payload_extract_failed, toast.partitionName)
-                is PayloadToast.BatchComplete -> context.getString(R.string.payload_batch_complete, toast.success, toast.fail)
+            viewModel.toastEvent.collect { toast ->
+                val msg = when (toast) {
+                    is PayloadToast.ExtractSuccess -> context.getString(R.string.payload_extract_success, toast.partitionName)
+                    is PayloadToast.ExtractFailed -> context.getString(R.string.payload_extract_failed, toast.partitionName)
+                    is PayloadToast.BatchComplete -> context.getString(R.string.payload_batch_complete, toast.success, toast.fail)
+                    is PayloadToast.Error -> toast.message
+                }
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
             }
-            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-        }
     }
 
     Scaffold(
@@ -192,6 +194,32 @@ fun PayloadDumperScreen(
                             enabled = !uiState.isParsing
                         ) {
                             Text(stringResource(R.string.payload_parse))
+                        }
+                    }
+                }
+
+                if (uiState.error != null) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "⚠",
+                                    fontSize = 20.sp
+                                )
+                                Spacer(modifier = Modifier.size(12.dp))
+                                Text(
+                                    text = uiState.error!!,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFFE53935)
+                                )
+                            }
                         }
                     }
                 }

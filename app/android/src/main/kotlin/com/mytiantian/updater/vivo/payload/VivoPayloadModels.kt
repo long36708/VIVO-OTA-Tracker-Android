@@ -49,6 +49,7 @@ data class ArchiveInfo(
 data class PayloadDumperUiState(
     val pathOrUrl: String = "",
     val inputUrl: String = "",
+    val parseRequestId: Int = 0,
     val archiveInfo: ArchiveInfo? = null,
     val partitions: List<PartitionInfo> = emptyList(),
     val filteredPartitions: List<PartitionInfo> = emptyList(),
@@ -64,4 +65,5 @@ sealed class PayloadToast {
     data class ExtractSuccess(val partitionName: String) : PayloadToast()
     data class ExtractFailed(val partitionName: String) : PayloadToast()
     data class BatchComplete(val success: Int, val fail: Int) : PayloadToast()
+    data class Error(val message: String) : PayloadToast()
 }

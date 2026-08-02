@@ -217,7 +217,7 @@ object PayloadUtil {
         httpUtil.readSync(endBytes)
         val centralDirectoryInfo = locateCentralDirectory(endBytes, httpUtil.length())
         if (centralDirectoryInfo.offset < 0 || centralDirectoryInfo.size <= 0) {
-            throw IOException("Central directory not found, not a valid OTA zip")
+            throw IOException("NOT_A_VALID_ZIP")
         }
 
         httpUtil.seek(centralDirectoryInfo.offset)
@@ -227,7 +227,7 @@ object PayloadUtil {
         val localHeaderOffset = locateLocalFileHeader(centralDirectory, fileName)
         Log.i("VivoPayload", "getPayloadOffset: cenOffset=${centralDirectoryInfo.offset}, cenSize=${centralDirectoryInfo.size}, localHeaderOffset=$localHeaderOffset")
         if (localHeaderOffset < 0) {
-            throw IOException("payload.bin not found in zip")
+            throw IOException("NOT_A_PAYLOAD_ZIP")
         }
 
         // local header 读取缓冲需足够大：vivo 的 payload.bin 的 local header
@@ -248,13 +248,13 @@ object PayloadUtil {
         httpUtil.seek(probeOffset)
         val probeRead = httpUtil.readSync(probe)
         val probeHex = probe.take(probeRead).joinToString(" ") { "%02x".format(it) }
-        Log.i("VivoPayload", "probe @$probeOffset read=$probeRead hex=$probeHex")
+        Log.d("VivoPayload", "probe @$probeOffset read=$probeRead hex=$probeHex")
         // 也探针附近 ±64 字节范围，确认 CrAU(43 72 41 55) 真实位置
         val before = ByteArray(64)
         httpUtil.seek((probeOffset - 64).coerceAtLeast(0))
         val beforeRead = httpUtil.readSync(before)
         val beforeHex = before.take(beforeRead).joinToString(" ") { "%02x".format(it) }
-        Log.i("VivoPayload", "probeBefore @${probeOffset - 64} read=$beforeRead hex=$beforeHex")
+        Log.d("VivoPayload", "probeBefore @${probeOffset - 64} read=$beforeRead hex=$beforeHex")
         return off + localHeaderOffset
     }
 
