@@ -1002,6 +1002,23 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(6.dp))
 
+                    Text("ℳℓ矜ℳℓ持", fontSize = 13.sp)
+                    Text(
+                        text = "Coolapk @ℳℓ矜ℳℓ持",
+                        color = MiuixTheme.colorScheme.primary,
+                        fontSize = 12.sp,
+                        modifier = Modifier.combinedClickable(
+                            onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.coolapk.com/u/922815"))) },
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                cb.setPrimaryClip(ClipData.newPlainText("url", "https://www.coolapk.com/u/922815"))
+                                Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
                     Text(stringResource(R.string.about_reference), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Text(
                         text = "YuKongA / Updater-KMP",
