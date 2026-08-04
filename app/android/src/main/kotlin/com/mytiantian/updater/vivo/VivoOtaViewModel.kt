@@ -141,6 +141,12 @@ class VivoOtaViewModel : ViewModel() {
             }
         }
     }
+
+    fun updateQueryDomain(domain: String) {
+        if (domain !in listOf("CN", "GLOBAL")) return
+        _uiState.update { it.copy(queryDomain = domain) }
+    }
+
     fun updateDeviceType(type: String) { _uiState.update { it.copy(deviceType = type) } }
     fun togglePackageType() {
         _uiState.update {
@@ -233,7 +239,8 @@ class VivoOtaViewModel : ViewModel() {
                     isPhone = state.deviceType == "phone",
                     isFull = state.isFullPackage,
                     sn = state.sn,
-                    channel = VivoOtaClient.QueryChannel.valueOf(state.queryChannel)
+                    channel = VivoOtaClient.QueryChannel.valueOf(state.queryChannel),
+                    domain = VivoOtaClient.Domain.valueOf(state.queryDomain)
                 )
 
                 val hasUpdate = result.updateVersion.isNotEmpty() &&

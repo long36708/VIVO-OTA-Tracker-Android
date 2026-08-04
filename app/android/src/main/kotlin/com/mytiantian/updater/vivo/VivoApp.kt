@@ -496,6 +496,26 @@ private fun ChannelCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
     }
 }
 
+// 出口版域名已失效，暂时隐藏该选项。恢复时取消注释并在主 LazyColumn 中重新调用。
+// @Composable
+// private fun DomainCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
+//     val domains = listOf(
+//         stringResource(R.string.domain_cn),
+//         stringResource(R.string.domain_global)
+//     )
+//     val domainValues = listOf("CN", "GLOBAL")
+//     val selectedIndex = domainValues.indexOf(state.queryDomain).takeIf { it >= 0 } ?: 0
+//     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+//         OverlayDropdownPreference(
+//             title = stringResource(R.string.label_query_domain),
+//             items = domains,
+//             selectedIndex = selectedIndex,
+//             onSelectedIndexChange = { viewModel.updateQueryDomain(domainValues[it]) },
+//             modifier = Modifier.fillMaxWidth()
+//         )
+//     }
+// }
+
 @Composable
 private fun QueryButton(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
     val codename = if (state.manualMode) state.manualCodename else state.selectedCodename

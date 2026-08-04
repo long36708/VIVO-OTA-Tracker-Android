@@ -39,6 +39,7 @@ data class VivoOtaUiState(
     val sn: String = "A0000000000000A",
     val isFullPackage: Boolean = true,
     val queryChannel: String = "NORMAL",
+    val queryDomain: String = "CN",
     val isLoading: Boolean = false,
     val result: VivoOtaResult? = null,
     val error: String? = null,

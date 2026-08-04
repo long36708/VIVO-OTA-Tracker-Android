@@ -36,6 +36,11 @@
     <string name="channel_beta">Beta (公测)</string>
     <string name="channel_alpha">Alpha (内测)</string>
 
+    <!-- Query domain -->
+    <string name="label_query_domain">Query domain</string>
+    <string name="domain_cn">CN (国行) · sysupgrade.vivo.com.cn</string>
+    <string name="domain_global">GLOBAL (出口版) · asia-sysupgrade-api.vivoglobal.com</string>
+
     <!-- Query -->
     <string name="btn_query">Query OTA Update</string>
     <string name="querying">Querying\u2026</string>
