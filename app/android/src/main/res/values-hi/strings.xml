@@ -27,6 +27,7 @@
     <string name="label_package_type">पैकेज प्रकार</string>
     <string name="pkg_full">पूर्ण पैकेज</string>
     <string name="pkg_incremental">वृद्धिशील</string>
+    <string name="pkg_locked_incremental">Trial / Beta / Alpha चैनल केवल वृद्धिशील पैकेज का समर्थन करते हैं</string>
 
     <!-- Query -->
     <string name="btn_query">OTA अपडेट खोजें</string>

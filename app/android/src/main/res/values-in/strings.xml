@@ -27,6 +27,7 @@
     <string name="label_package_type">Jenis paket</string>
     <string name="pkg_full">Paket lengkap</string>
     <string name="pkg_incremental">Inkremental</string>
+    <string name="pkg_locked_incremental">Saluran Trial / Beta / Alpha hanya mendukung paket inkremental</string>
 
     <!-- Query -->
     <string name="btn_query">Cari Pembaruan OTA</string>

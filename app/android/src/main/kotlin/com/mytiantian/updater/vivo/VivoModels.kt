@@ -10,6 +10,7 @@ data class VivoOtaResult(
     val securityPatch: String = "",
     val updateDate: String = "",
     val md5: String = "",
+    val channel: String = "NORMAL",
     val rawResponse: String = ""
 )
 
@@ -20,22 +21,24 @@ data class QueryHistoryEntry(
     val swVersion: String,
     val resultVersion: String,
     val fileSize: String,
-    val downloadUrl: String
+    val downloadUrl: String,
+    val channel: String = "NORMAL"
 )
 
 data class VivoOtaUiState(
-    val selectedSeries: String = "",
+    val selectedSeries: String = "X 系列",
     val selectedModelIndex: Int = 0,
     val selectedModel: String = "",
     val selectedCodename: String = "",
     val selectedModelSwVer: String = "",
     val deviceType: String = "phone",
-    val softwareVersion: String = "",
-    val androidVersion: Int = 16,
+    val softwareVersion: String = "15.0.33.7.W10",
+    val androidVersion: Int = 15,
     val isCustomAndroidVersion: Boolean = false,
     val customAndroidVersion: String = "",
     val sn: String = "A0000000000000A",
     val isFullPackage: Boolean = true,
+    val queryChannel: String = "NORMAL",
     val isLoading: Boolean = false,
     val result: VivoOtaResult? = null,
     val error: String? = null,

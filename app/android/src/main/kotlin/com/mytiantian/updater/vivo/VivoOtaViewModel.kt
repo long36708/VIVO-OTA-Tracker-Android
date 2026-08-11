@@ -34,6 +34,28 @@ class VivoOtaViewModel : ViewModel() {
         client = VivoOtaClient(ctx)
         loadHistory()
         initCrypto()
+        applyDefaultSelection()
+    }
+
+    private fun applyDefaultSelection() {
+        val defaultSeries = "X 系列"
+        val defaultModel = "vivo X200 Pro mini"
+        val devices = VivoDeviceDatabase.devicesOf(defaultSeries)
+        val index = devices.indexOfFirst { it.model == defaultModel }.coerceAtLeast(0)
+        val device = devices.getOrNull(index) ?: devices.firstOrNull() ?: return
+        val detectedType = detectDeviceType(defaultSeries)
+        _uiState.update {
+            it.copy(
+                selectedSeries = defaultSeries,
+                selectedModelIndex = index,
+                selectedModel = device.model,
+                selectedCodename = device.codename,
+                selectedModelSwVer = device.model_sw_ver,
+                deviceType = detectedType,
+                androidVersion = 15,
+                isCustomAndroidVersion = false
+            )
+        }
     }
 
     private fun initCrypto() {
@@ -109,8 +131,23 @@ class VivoOtaViewModel : ViewModel() {
     }
 
     fun updateSn(v: String) { _uiState.update { it.copy(sn = v) } }
+    fun updateQueryChannel(channel: String) {
+        _uiState.update {
+            // 尝鲜 / 公测 / 内测通道仅支持增量包，强制锁定为增量
+            if (channel != "NORMAL") {
+                it.copy(queryChannel = channel, isFullPackage = false)
+            } else {
+                it.copy(queryChannel = channel)
+            }
+        }
+    }
     fun updateDeviceType(type: String) { _uiState.update { it.copy(deviceType = type) } }
-    fun togglePackageType() { _uiState.update { it.copy(isFullPackage = !it.isFullPackage) } }
+    fun togglePackageType() {
+        _uiState.update {
+            // 尝鲜 / 公测 / 内测通道下禁止切换包类型，始终保持增量
+            if (it.queryChannel != "NORMAL") it else it.copy(isFullPackage = !it.isFullPackage)
+        }
+    }
     fun toggleManualMode() { _uiState.update { it.copy(manualMode = !it.manualMode) } }
     fun updateManualCodename(v: String) { _uiState.update { it.copy(manualCodename = v) } }
     fun updateManualModelSwVer(v: String) { _uiState.update { it.copy(manualModelSwVer = v) } }
@@ -195,7 +232,8 @@ class VivoOtaViewModel : ViewModel() {
                     androidVersion = state.androidVersion,
                     isPhone = state.deviceType == "phone",
                     isFull = state.isFullPackage,
-                    sn = state.sn
+                    sn = state.sn,
+                    channel = VivoOtaClient.QueryChannel.valueOf(state.queryChannel)
                 )
 
                 val hasUpdate = result.updateVersion.isNotEmpty() &&
@@ -241,7 +279,8 @@ class VivoOtaViewModel : ViewModel() {
             swVersion = swVersion,
             resultVersion = result.updateVersion,
             fileSize = result.fileSizeMb,
-            downloadUrl = result.downloadUrl
+            downloadUrl = result.downloadUrl,
+            channel = result.channel
         )
         val updated = (listOf(entry) + _uiState.value.history).take(20)
         _uiState.update { it.copy(history = updated) }
@@ -269,7 +308,8 @@ class VivoOtaViewModel : ViewModel() {
                         swVersion = o.getString("swVersion"),
                         resultVersion = o.optString("resultVersion", ""),
                         fileSize = o.optString("fileSize", ""),
-                        downloadUrl = o.optString("downloadUrl", "")
+                        downloadUrl = o.optString("downloadUrl", ""),
+                        channel = o.optString("channel", "NORMAL")
                     )
                 )
             }
@@ -291,6 +331,7 @@ class VivoOtaViewModel : ViewModel() {
                     put("resultVersion", e.resultVersion)
                     put("fileSize", e.fileSize)
                     put("downloadUrl", e.downloadUrl)
+                    put("channel", e.channel)
                 })
             }
             prefs.edit().putString("history", arr.toString()).apply()

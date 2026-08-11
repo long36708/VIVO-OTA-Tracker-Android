@@ -31,12 +31,16 @@ android {
     namespace = ProjectConfig.NAMESPACE
     compileSdk = ProjectConfig.Android.COMPILE_SDK
     buildToolsVersion = ProjectConfig.Android.BUILD_TOOLS_VERSION
+    buildFeatures {
+        buildConfig = true
+    }
     defaultConfig {
         applicationId = ProjectConfig.PACKAGE_NAME
         versionCode = getGitVersionCode()
         versionName = ProjectConfig.VERSION_NAME
         targetSdk = ProjectConfig.Android.TARGET_SDK
         minSdk = ProjectConfig.Android.MIN_SDK
+        buildConfigField("String", "APP_VERSION_NAME", "\"${ProjectConfig.VERSION_NAME}\"")
     }
     val properties = Properties()
     runCatching { properties.load(project.rootProject.file("local.properties").inputStream()) }
