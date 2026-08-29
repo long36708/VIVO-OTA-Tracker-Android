@@ -114,4 +114,37 @@
     <string name="payload_extract_success">%1$s 提取完成</string>
     <string name="payload_extract_failed">%1$s 提取失败</string>
     <string name="payload_batch_complete">批量完成: %1$d 成功, %2$d 失败</string>
+
+    <!-- 包内文件浏览 (ADR-001, L0) -->
+    <string name="zip_package_files">包内文件</string>
+    <string name="zip_search_hint">搜索文件名</string>
+    <string name="zip_preview">预览</string>
+    <string name="zip_download">下载</string>
+    <string name="zip_downloading">下载中…</string>
+    <string name="zip_loading">正在加载文件列表…</string>
+    <string name="zip_preview_not_text">不是纯文本，无法预览</string>
+    <string name="zip_load_full">加载完整内容</string>
+    <string name="zip_copy_all">复制全部</string>
+    <string name="zip_copy_loaded">复制已加载的 %1$s</string>
+    <string name="zip_too_large_to_copy">内容过大无法复制，请下载后查看</string>
+    <!-- 压缩后 → 解压后 -->
+    <string name="zip_size_format">%1$s → %2$s</string>
+    <string name="zip_truncated_hint">显示前 %1$s，共 %2$s</string>
+    <string name="zip_encoding">编码</string>
+    <string name="zip_crc">CRC32</string>
+    <string name="zip_method">方式</string>
+    <string name="zip_method_stored">未压缩</string>
+    <string name="zip_method_deflate">Deflate</string>
+    <string name="zip_too_large">超过 10 MB</string>
+    <string name="zip_unsupported">不支持</string>
+    <string name="zip_download_too_large">超过 10 MB 限制，已禁止下载</string>
+    <string name="zip_download_incomplete">数据不完整或大小不符，已中止下载</string>
+    <string name="zip_download_success">%1$s 已保存到下载目录</string>
+    <string name="zip_download_failed">%1$s 保存失败</string>
+    <string name="zip_download_crc_mismatch">%1$s 已保存，但 CRC32 校验不一致</string>
+    <string name="zip_err_not_valid_zip">不是有效的 zip 包</string>
+    <string name="zip_err_bad_local_header">条目头损坏</string>
+    <string name="zip_err_bad_deflate">压缩数据损坏</string>
+    <string name="zip_err_unsupported_method">不支持的压缩方式</string>
+    <string name="zip_err_generic">操作失败</string>
 </resources>

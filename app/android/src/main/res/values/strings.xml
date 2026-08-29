@@ -126,4 +126,37 @@
     <string name="payload_extract_success">%1$s extraction complete</string>
     <string name="payload_extract_failed">%1$s extraction failed</string>
     <string name="payload_batch_complete">Batch complete: %1$d success, %2$d failed</string>
+
+    <!-- Zip Entry Browser (ADR-001, L0) -->
+    <string name="zip_package_files">Package files</string>
+    <string name="zip_search_hint">Search file name</string>
+    <string name="zip_preview">Preview</string>
+    <string name="zip_download">Download</string>
+    <string name="zip_downloading">Downloading…</string>
+    <string name="zip_loading">Loading file list…</string>
+    <string name="zip_preview_not_text">Not plain text, cannot be previewed</string>
+    <string name="zip_load_full">Load full content</string>
+    <string name="zip_copy_all">Copy all</string>
+    <string name="zip_copy_loaded">Copy loaded %1$s</string>
+    <string name="zip_too_large_to_copy">Content too large to copy, please download it</string>
+    <!-- 压缩后 → 解压后 -->
+    <string name="zip_size_format">%1$s → %2$s</string>
+    <string name="zip_truncated_hint">Showing first %1$s of %2$s</string>
+    <string name="zip_encoding">Encoding</string>
+    <string name="zip_crc">CRC32</string>
+    <string name="zip_method">Method</string>
+    <string name="zip_method_stored">Stored</string>
+    <string name="zip_method_deflate">Deflate</string>
+    <string name="zip_too_large">Over 10 MB</string>
+    <string name="zip_unsupported">Unsupported</string>
+    <string name="zip_download_too_large">Exceeds the 10 MB limit — download blocked</string>
+    <string name="zip_download_incomplete">Incomplete data or size mismatch — download aborted</string>
+    <string name="zip_download_success">%1$s saved to Downloads</string>
+    <string name="zip_download_failed">Failed to save %1$s</string>
+    <string name="zip_download_crc_mismatch">%1$s saved, but CRC32 mismatch</string>
+    <string name="zip_err_not_valid_zip">Not a valid zip package</string>
+    <string name="zip_err_bad_local_header">Corrupted entry header</string>
+    <string name="zip_err_bad_deflate">Corrupted compressed data</string>
+    <string name="zip_err_unsupported_method">Unsupported compression method</string>
+    <string name="zip_err_generic">Operation failed</string>
 </resources>

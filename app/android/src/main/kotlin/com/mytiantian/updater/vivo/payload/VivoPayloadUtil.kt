@@ -258,7 +258,7 @@ object PayloadUtil {
         return off + localHeaderOffset
     }
 
-    private fun locateCentralDirectory(byteArray: ByteArray, fileLength: Long): FileInfo {
+    internal fun locateCentralDirectory(byteArray: ByteArray, fileLength: Long): FileInfo {
         val byteBuffer = ByteBuffer.wrap(byteArray).order(ByteOrder.LITTLE_ENDIAN)
         val offset = byteBuffer.capacity() - ENDHDR
         var cenSize: Long = -1
@@ -275,7 +275,7 @@ object PayloadUtil {
                     if (byteBuffer.getInt().toLong() == ZIP64_LOCSIG) {
                         byteBuffer.position(byteBuffer.position() + 4)
                         val zip64EndSigOffset = byteBuffer.getLong()
-                        byteBuffer.position(4096 - (fileLength - zip64EndSigOffset).toInt())
+                        byteBuffer.position(byteArray.size - (fileLength - zip64EndSigOffset).toInt())
                         if (byteBuffer.getInt().toLong() == ZIP64_ENDSIG) {
                             byteBuffer.position(byteBuffer.position() + 36)
                             cenSize = byteBuffer.getLong().toULong().toLong()
