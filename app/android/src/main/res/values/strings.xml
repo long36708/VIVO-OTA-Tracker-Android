@@ -134,6 +134,9 @@
     <string name="zip_open_zip">Open</string>
     <string name="zip_back_up">Back</string>
     <string name="zip_nested_too_deep">Nested archive is too deep (max 3 levels)</string>
+    <string name="zip_no_match">No matching files</string>
+    <string name="zip_no_match_hint">Search covers this archive only; open a nested archive to search inside it</string>
+    <string name="zip_file_count">%1$d files</string>
     <string name="zip_download">Download</string>
     <string name="zip_downloading">Downloading…</string>
     <string name="zip_loading">Loading file list…</string>

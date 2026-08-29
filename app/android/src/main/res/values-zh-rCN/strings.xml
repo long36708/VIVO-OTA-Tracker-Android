@@ -122,6 +122,9 @@
     <string name="zip_open_zip">打开</string>
     <string name="zip_back_up">返回上层</string>
     <string name="zip_nested_too_deep">嵌套层级过深（最多 3 层）</string>
+    <string name="zip_no_match">没有匹配的文件</string>
+    <string name="zip_no_match_hint">搜索范围仅限当前包，可打开嵌套包后在其中继续搜索</string>
+    <string name="zip_file_count">%1$d 个文件</string>
     <string name="zip_download">下载</string>
     <string name="zip_downloading">下载中…</string>
     <string name="zip_loading">正在加载文件列表…</string>

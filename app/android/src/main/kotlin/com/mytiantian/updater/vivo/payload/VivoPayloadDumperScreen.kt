@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -65,6 +66,9 @@ fun PayloadDumperScreen(
     val uiState by viewModel.uiState.collectAsState()
     val zipState by viewModel.zipState.collectAsState()
     val context = LocalContext.current
+    // ADR-002 D1：页面状态机保持在 payload 模块内部，不侵入 VivoApp
+    var showZipBrowser by remember { mutableStateOf(false) }
+    var showZipPreview by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.parseRequestId) {
         if (uiState.parseRequestId > 0 && uiState.pathOrUrl.isNotBlank()) {
@@ -88,6 +92,11 @@ fun PayloadDumperScreen(
         viewModel.zipMessage.collect { msg ->
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
         }
+    }
+
+    // 预览内容就绪后进入预览页；解析失败时停留在浏览页内显示错误
+    LaunchedEffect(zipState.previewEntry) {
+        showZipPreview = zipState.previewEntry != null
     }
 
     Scaffold(
@@ -290,44 +299,17 @@ fun PayloadDumperScreen(
                     }
                 }
 
+                // ADR-002 D1：包内文件改为入口卡片，点击进入独立全屏页面。
+                // 不再内联展开——它与分区列表是两件不同的事，共用滚动容器是层级混乱的根源。
                 if (uiState.pathOrUrl.isNotBlank()) {
                     item {
-                        ZipBrowserSection(viewModel = viewModel, zipState = zipState)
-                    }
-                    if (zipState.expanded) {
-                        // 嵌套浏览时显示返回上层的入口
-                        if (zipState.breadcrumb.size > 1) {
-                            item {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { viewModel.navigateZipUp(context) }
-                                        .padding(vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(text = "←", fontSize = 18.sp)
-                                    Spacer(modifier = Modifier.size(8.dp))
-                                    Text(
-                                        text = stringResource(R.string.zip_back_up),
-                                        fontSize = 13.sp,
-                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                    )
-                                }
+                        ZipBrowserEntryCard(
+                            fileCount = zipState.entries.size,
+                            onClick = {
+                                showZipBrowser = true
+                                viewModel.loadZipEntries(context)
                             }
-                        }
-                        item {
-                            ZipSearchField(viewModel = viewModel, query = zipState.searchQuery)
-                        }
-                        // 条目直接挂在外层 LazyColumn 上，避免嵌套滚动
-                        items(zipState.visibleEntries) { entry ->
-                            ZipEntryItem(
-                                entry = entry,
-                                isDownloading = zipState.downloadingEntryName == entry.name,
-                                onPreview = { viewModel.previewEntry(context, entry) },
-                                onOpenZip = { viewModel.openNestedZip(context, entry) },
-                                onDownload = { viewModel.downloadEntry(context, entry) }
-                            )
-                        }
+                        )
                     }
                 }
 
@@ -368,15 +350,20 @@ fun PayloadDumperScreen(
         )
     }
 
-    zipState.previewEntry?.let { entry ->
-        ZipPreviewDialog(
-            entry = entry,
-            preview = zipState.preview,
-            isLoading = zipState.isPreviewLoading,
-            error = zipState.previewError,
-            onDismiss = { viewModel.dismissPreview() },
-            onLoadFull = { viewModel.previewEntry(context, entry, loadFull = true) },
-            onDownload = { viewModel.downloadEntry(context, entry) }
+    // ADR-002 D1/D4：全屏页面栈。浏览页在前、预览页覆盖其上。
+    if (showZipBrowser) {
+        ZipBrowserScreen(
+            viewModel = viewModel,
+            onBack = {
+                showZipBrowser = false
+                viewModel.dismissPreview()
+            }
+        )
+    }
+    if (showZipPreview) {
+        ZipPreviewScreen(
+            viewModel = viewModel,
+            onBack = { viewModel.dismissPreview() }
         )
     }
 }
@@ -564,287 +551,43 @@ private fun formatFileSize(bytes: Long): String {
     }
 }
 
-// ===== 包内文件浏览（ADR-001 / L0 层）=====
+// ===== 包内文件入口（ADR-002 D1：点击进入独立全屏页面）=====
 
-/** 可折叠的「包内文件」区块，默认折叠（ADR-001 D10）。 */
+/** 「包内文件」入口卡片，显示文件数概览。 */
 @Composable
-private fun ZipBrowserSection(
-    viewModel: VivoPayloadViewModel,
-    zipState: ZipBrowserState
-) {
-    val context = LocalContext.current
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { viewModel.toggleZipExpanded(context) },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.zip_package_files) +
-                            if (zipState.entries.isNotEmpty()) " (${zipState.entries.size})" else "",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    // 嵌套浏览时显示路径，便于确认当前所在层级
-                    if (zipState.breadcrumb.size > 1) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = zipState.breadcrumb.joinToString(" / "),
-                            fontSize = 10.sp,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                        )
-                    }
-                }
-                Text(
-                    text = if (zipState.expanded) "▲" else "▼",
-                    fontSize = 12.sp,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                )
-            }
-            if (zipState.isLoading) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Text(
-                        text = stringResource(R.string.zip_loading),
-                        fontSize = 12.sp,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                    )
-                }
-            }
-            zipState.error?.let { err ->
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = err, fontSize = 12.sp, color = Color(0xFFE53935))
-            }
-        }
-    }
-}
-
-@Composable
-private fun ZipSearchField(viewModel: VivoPayloadViewModel, query: String) {
-    TextField(
-        insideMargin = DpSize(16.dp, 20.dp),
-        modifier = Modifier.fillMaxWidth(),
-        value = query,
-        onValueChange = { viewModel.updateZipSearch(it) },
-        label = stringResource(R.string.zip_search_hint),
-        singleLine = true
-    )
-}
-
-@Composable
-private fun ZipEntryItem(
-    entry: ZipEntryInfo,
-    isDownloading: Boolean,
-    onPreview: () -> Unit,
-    onOpenZip: () -> Unit,
-    onDownload: () -> Unit
+private fun ZipBrowserEntryCard(
+    fileCount: Int,
+    onClick: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .clickable(onClick = onClick)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = entry.name.substringAfterLast('/').ifBlank { entry.name },
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
+                    text = stringResource(R.string.zip_package_files),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
                 )
-                entry.name.substringBeforeLast('/').let { dir ->
-                    if (dir.isNotEmpty()) {
-                        Text(
-                            text = dir,
-                            fontSize = 10.sp,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(2.dp))
-                // ADR-001 D3：压缩后与解压后尺寸都展示，便于理解为何被 10MB 拦下
-                Text(
-                    text = stringResource(
-                        R.string.zip_size_format,
-                        formatFileSize(entry.compressedSize),
-                        formatFileSize(entry.uncompressedSize)
-                    ),
-                    fontSize = 11.sp,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                )
-            }
-
-            Spacer(modifier = Modifier.size(8.dp))
-            if (isDownloading) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp))
-            } else if (entry.isNestedZip) {
-                // 嵌套 zip：进入内部继续浏览（仍需 ≤10MB，因 DEFLATE 无法部分解压）
-                if (entry.canDownload) {
-                    Button(onClick = onOpenZip) {
-                        Text(stringResource(R.string.zip_open_zip), fontSize = 12.sp)
-                    }
-                    Spacer(modifier = Modifier.size(6.dp))
-                }
-                Button(onClick = onDownload) {
-                    Text(stringResource(R.string.zip_download), fontSize = 12.sp)
-                }
-            } else if (entry.canDownload) {
-                if (entry.canPreview) {
-                    Button(onClick = onPreview) {
-                        Text(stringResource(R.string.zip_preview), fontSize = 12.sp)
-                    }
-                    Spacer(modifier = Modifier.size(6.dp))
-                }
-                Button(onClick = onDownload) {
-                    Text(stringResource(R.string.zip_download), fontSize = 12.sp)
-                }
-            } else if (!entry.isDirectory) {
-                Text(
-                    text = stringResource(
-                        if (entry.isSupported) R.string.zip_too_large else R.string.zip_unsupported
-                    ),
-                    fontSize = 10.sp,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ZipPreviewDialog(
-    entry: ZipEntryInfo,
-    preview: TextPreview?,
-    isLoading: Boolean,
-    error: String?,
-    onDismiss: () -> Unit,
-    onLoadFull: () -> Unit,
-    onDownload: () -> Unit
-) {
-    val context = LocalContext.current
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Bottom
-        ) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier
-                        .padding(20.dp)
-                        .heightIn(max = 460.dp)
-                ) {
+                if (fileCount > 0) {
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = entry.name.substringAfterLast('/').ifBlank { entry.name },
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        text = stringResource(R.string.zip_file_count, fileCount),
+                        fontSize = 11.sp,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    when {
-                        isLoading -> {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.size(8.dp))
-                                Text(
-                                    text = stringResource(R.string.zip_loading),
-                                    fontSize = 12.sp,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                )
-                            }
-                        }
-
-                        error != null -> {
-                            Text(text = error, fontSize = 13.sp, color = Color(0xFFE53935))
-                        }
-
-                        preview != null -> {
-                            InfoRow(stringResource(R.string.zip_encoding), preview.encoding)
-                            if (preview.truncated) {
-                                Text(
-                                    text = stringResource(
-                                        R.string.zip_truncated_hint,
-                                        formatFileSize(preview.bytesLoaded),
-                                        formatFileSize(preview.totalSize)
-                                    ),
-                                    fontSize = 11.sp,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            // ADR-001 D8：Compose 的 Text 默认不可选中，必须包 SelectionContainer
-                            // 才能长按拖选；这里用原生 BasicText 而非 miuix 的 Text，
-                            // 以确保选择功能一定生效（后者内部实现不受我们控制）。
-                            SelectionContainer(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f, fill = false)
-                                    .verticalScroll(rememberScrollState())
-                            ) {
-                                BasicText(
-                                    text = preview.text,
-                                    style = TextStyle(
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 12.sp,
-                                        color = MiuixTheme.colorScheme.onSurface
-                                    )
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Button(onClick = { copyPreviewText(context, preview.text) }) {
-                                Text(
-                                    text = stringResource(
-                                        if (preview.canCopyAll) R.string.zip_copy_all
-                                        else R.string.zip_too_large_to_copy
-                                    ),
-                                    fontSize = 12.sp
-                                )
-                            }
-                            if (preview.truncated && entry.canDownload) {
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Button(onClick = onLoadFull) {
-                                    Text(stringResource(R.string.zip_load_full), fontSize = 12.sp)
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-                    if (entry.canDownload) {
-                        Button(
-                            onClick = {
-                                onDownload()
-                                onDismiss()
-                            },
-                            colors = ButtonDefaults.buttonColorsPrimary()
-                        ) {
-                            Text(stringResource(R.string.zip_download))
-                        }
-                    }
                 }
             }
+            Text(
+                text = "›",
+                fontSize = 18.sp,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+            )
         }
-    }
-}
-
-/**
- * Binder 事务上限约 1MB，复制超大文本会抛 TransactionTooLargeException（ADR-001 D8）。
- * 这里兜住异常，避免用户预览 9MB 文本并点「复制」时直接崩溃。
- */
-private fun copyPreviewText(context: Context, text: String) {
-    runCatching {
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("preview", text))
-        Toast.makeText(context, context.getString(R.string.copied), Toast.LENGTH_SHORT).show()
-    }.onFailure {
-        Toast.makeText(context, context.getString(R.string.zip_too_large_to_copy), Toast.LENGTH_LONG).show()
     }
 }

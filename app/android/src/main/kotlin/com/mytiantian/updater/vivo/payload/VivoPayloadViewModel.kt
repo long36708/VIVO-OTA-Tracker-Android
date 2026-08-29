@@ -340,7 +340,10 @@ class VivoPayloadViewModel : ViewModel() {
                     val entries = VivoZipBrowser.listZipEntries(zipStack.last().source)
                     _zipState.value = _zipState.value.copy(
                         entries = entries,
-                        visibleEntries = entries,
+                        rootItems = computeRootItems(entries),
+                        viewEntries = emptyList(),
+                        currentFolder = null,
+                        searchQuery = "",
                         breadcrumb = listOf(rootName),
                         isLoading = false
                     )
@@ -390,7 +393,9 @@ class VivoPayloadViewModel : ViewModel() {
                     zipStack.addLast(ZipLevel(displayName, nested))
                     _zipState.value = _zipState.value.copy(
                         entries = entries,
-                        visibleEntries = entries,
+                        rootItems = computeRootItems(entries),
+                        viewEntries = emptyList(),
+                        currentFolder = null,
                         searchQuery = "",
                         breadcrumb = zipStack.map { it.displayName },
                         isLoading = false
@@ -416,7 +421,9 @@ class VivoPayloadViewModel : ViewModel() {
                     val entries = VivoZipBrowser.listZipEntries(zipStack.last().source)
                     _zipState.value = _zipState.value.copy(
                         entries = entries,
-                        visibleEntries = entries,
+                        rootItems = computeRootItems(entries),
+                        viewEntries = emptyList(),
+                        currentFolder = null,
                         searchQuery = "",
                         breadcrumb = zipStack.map { it.displayName },
                         isLoading = false
@@ -431,22 +438,87 @@ class VivoPayloadViewModel : ViewModel() {
         }
     }
 
-    fun toggleZipExpanded(context: Context) {
-        val expanded = !_zipState.value.expanded
-        _zipState.value = _zipState.value.copy(expanded = expanded)
-        if (expanded) loadZipEntries(context)
+    /** 供界面判断返回键应退出文件夹还是退出嵌套包。 */
+    fun canExitZipFolder(): Boolean = _zipState.value.currentFolder != null
+    fun canNavigateZipUp(): Boolean = zipStack.size > 1
+
+    // ===== ADR-002：文件管理器式浏览 =====
+
+    /**
+     * 合成顶层文件夹：按路径首段聚合。
+     *
+     * zip 中不存在显式目录条目，文件夹全靠路径前缀合成（ADR-002 D2）。
+     * 只合成**一层**——深层内容进入后平铺，避免逐级点入深路径。
+     */
+    private fun computeRootItems(entries: List<ZipEntryInfo>): List<ZipListItem> {
+        val folders = LinkedHashMap<String, Pair<Int, Long>>()
+        val loose = ArrayList<ZipEntryInfo>()
+        for (e in entries) {
+            if (e.isDirectory) continue
+            val idx = e.name.indexOf('/')
+            if (idx < 0) {
+                loose.add(e)
+            } else {
+                val top = e.name.substring(0, idx)
+                val (count, size) = folders[top] ?: (0 to 0L)
+                folders[top] = (count + 1) to (size + e.uncompressedSize)
+            }
+        }
+        val items = ArrayList<ZipListItem>()
+        folders.entries.sortedBy { it.key }
+            .forEach { (name, v) -> items.add(ZipListItem.Folder(name, v.first, v.second)) }
+        loose.sortedBy { it.name }.forEach { items.add(ZipListItem.Entry(it)) }
+        return items
+    }
+
+    /**
+     * 当前视图的文件条目。
+     *
+     * 搜索覆盖**整个当前 zip 层**（含子目录内的条目），否则用户搜
+     * `metadata` 会因为它在 META-INF 里而搜不到，这比搜不到更反直觉。
+     * 「只搜当前层」指的是不搜未打开的嵌套 zip（ADR-002 D3）。
+     */
+    private fun computeViewEntries(
+        entries: List<ZipEntryInfo>,
+        folder: String?,
+        query: String
+    ): List<ZipEntryInfo> {
+        val base = if (query.isNotBlank()) {
+            entries.filter { !it.isDirectory }
+        } else if (folder != null) {
+            entries.filter { !it.isDirectory && it.name.startsWith("$folder/") }
+        } else {
+            emptyList()
+        }
+        val filtered = if (query.isBlank()) {
+            base
+        } else {
+            base.filter { it.name.contains(query, ignoreCase = true) }
+        }
+        return filtered.sortedBy { it.name }
+    }
+
+    /** 进入合成文件夹。 */
+    fun enterZipFolder(folder: String) {
+        val state = _zipState.value
+        _zipState.value = state.copy(
+            currentFolder = folder,
+            viewEntries = computeViewEntries(state.entries, folder, state.searchQuery)
+        )
+    }
+
+    /** 返回顶层；已进入最外层 zip 时由调用方处理退出。 */
+    fun exitZipFolder() {
+        val state = _zipState.value
+        _zipState.value = state.copy(currentFolder = null)
     }
 
     fun updateZipSearch(query: String) {
-        val all = _zipState.value.entries
+        val state = _zipState.value
         val q = query.trim()
-        _zipState.value = _zipState.value.copy(
+        _zipState.value = state.copy(
             searchQuery = query,
-            visibleEntries = if (q.isEmpty()) {
-                all
-            } else {
-                all.filter { it.name.contains(q, ignoreCase = true) }
-            }
+            viewEntries = computeViewEntries(state.entries, state.currentFolder, q)
         )
     }
 

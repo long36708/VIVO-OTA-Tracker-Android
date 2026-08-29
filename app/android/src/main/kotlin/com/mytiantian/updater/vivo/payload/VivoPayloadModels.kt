@@ -174,13 +174,31 @@ sealed class EntryDownloadOutcome {
     data class Failure(val reason: String) : EntryDownloadOutcome()
 }
 
+/**
+ * 浏览列表中的一项（ADR-002 D2）。
+ *
+ * zip 里没有显式目录条目，Folder 是**按路径首段合成的**，
+ * 不是 zip 固有结构——这个区分决定了「进入文件夹」只是视图过滤而非数据导航。
+ */
+sealed class ZipListItem {
+    /** 合成的顶层文件夹。 */
+    data class Folder(val name: String, val count: Int, val totalSize: Long) : ZipListItem()
+    /** 文件条目。 */
+    data class Entry(val entry: ZipEntryInfo) : ZipListItem()
+}
+
 /** zip 条目浏览的界面状态。 */
 data class ZipBrowserState(
+    /** 当前 zip 层的全部条目。 */
     val entries: List<ZipEntryInfo> = emptyList(),
-    val visibleEntries: List<ZipEntryInfo> = emptyList(),
+    /** 顶层视图：合成文件夹在前、根目录散装文件在后。 */
+    val rootItems: List<ZipListItem> = emptyList(),
+    /** 文件夹内视图 / 搜索结果的条目。 */
+    val viewEntries: List<ZipEntryInfo> = emptyList(),
+    /** 当前所在文件夹；null 表示顶层视图。 */
+    val currentFolder: String? = null,
     val searchQuery: String = "",
-    val expanded: Boolean = false,
-    /** 嵌套导航路径，首项为最外层包名。 */
+    /** zip 嵌套导航路径，首项为最外层包名。 */
     val breadcrumb: List<String> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -189,4 +207,7 @@ data class ZipBrowserState(
     val isPreviewLoading: Boolean = false,
     val previewError: String? = null,
     val downloadingEntryName: String? = null,
-)
+) {
+    /** 顶层视图仅在「未进入文件夹且无搜索词」时使用。 */
+    val isRootView: Boolean get() = currentFolder == null && searchQuery.isBlank()
+}
