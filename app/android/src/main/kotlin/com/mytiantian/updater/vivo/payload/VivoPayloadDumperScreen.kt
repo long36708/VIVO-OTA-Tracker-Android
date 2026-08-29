@@ -295,6 +295,26 @@ fun PayloadDumperScreen(
                         ZipBrowserSection(viewModel = viewModel, zipState = zipState)
                     }
                     if (zipState.expanded) {
+                        // 嵌套浏览时显示返回上层的入口
+                        if (zipState.breadcrumb.size > 1) {
+                            item {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { viewModel.navigateZipUp(context) }
+                                        .padding(vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(text = "←", fontSize = 18.sp)
+                                    Spacer(modifier = Modifier.size(8.dp))
+                                    Text(
+                                        text = stringResource(R.string.zip_back_up),
+                                        fontSize = 13.sp,
+                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                    )
+                                }
+                            }
+                        }
                         item {
                             ZipSearchField(viewModel = viewModel, query = zipState.searchQuery)
                         }
@@ -304,6 +324,7 @@ fun PayloadDumperScreen(
                                 entry = entry,
                                 isDownloading = zipState.downloadingEntryName == entry.name,
                                 onPreview = { viewModel.previewEntry(context, entry) },
+                                onOpenZip = { viewModel.openNestedZip(context, entry) },
                                 onDownload = { viewModel.downloadEntry(context, entry) }
                             )
                         }
@@ -561,13 +582,23 @@ private fun ZipBrowserSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = stringResource(R.string.zip_package_files) +
-                        if (zipState.entries.isNotEmpty()) " (${zipState.entries.size})" else "",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.zip_package_files) +
+                            if (zipState.entries.isNotEmpty()) " (${zipState.entries.size})" else "",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    // 嵌套浏览时显示路径，便于确认当前所在层级
+                    if (zipState.breadcrumb.size > 1) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = zipState.breadcrumb.joinToString(" / "),
+                            fontSize = 10.sp,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        )
+                    }
+                }
                 Text(
                     text = if (zipState.expanded) "▲" else "▼",
                     fontSize = 12.sp,
@@ -611,6 +642,7 @@ private fun ZipEntryItem(
     entry: ZipEntryInfo,
     isDownloading: Boolean,
     onPreview: () -> Unit,
+    onOpenZip: () -> Unit,
     onDownload: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -651,8 +683,19 @@ private fun ZipEntryItem(
             Spacer(modifier = Modifier.size(8.dp))
             if (isDownloading) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp))
+            } else if (entry.isNestedZip) {
+                // 嵌套 zip：进入内部继续浏览（仍需 ≤10MB，因 DEFLATE 无法部分解压）
+                if (entry.canDownload) {
+                    Button(onClick = onOpenZip) {
+                        Text(stringResource(R.string.zip_open_zip), fontSize = 12.sp)
+                    }
+                    Spacer(modifier = Modifier.size(6.dp))
+                }
+                Button(onClick = onDownload) {
+                    Text(stringResource(R.string.zip_download), fontSize = 12.sp)
+                }
             } else if (entry.canDownload) {
-                if (entry.isTextByExtension) {
+                if (entry.canPreview) {
                     Button(onClick = onPreview) {
                         Text(stringResource(R.string.zip_preview), fontSize = 12.sp)
                     }

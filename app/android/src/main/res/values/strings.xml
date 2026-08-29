@@ -131,6 +131,9 @@
     <string name="zip_package_files">Package files</string>
     <string name="zip_search_hint">Search file name</string>
     <string name="zip_preview">Preview</string>
+    <string name="zip_open_zip">Open</string>
+    <string name="zip_back_up">Back</string>
+    <string name="zip_nested_too_deep">Nested archive is too deep (max 3 levels)</string>
     <string name="zip_download">Download</string>
     <string name="zip_downloading">Downloading…</string>
     <string name="zip_loading">Loading file list…</string>

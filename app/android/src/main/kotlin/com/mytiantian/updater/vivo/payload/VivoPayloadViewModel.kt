@@ -50,6 +50,14 @@ class VivoPayloadViewModel : ViewModel() {
      */
     private val zipMutex = Mutex()
 
+    /**
+     * 嵌套导航栈：栈顶为当前层级。
+     * 栈底是外层 OTA 包（HttpByteSource），其余是已读出到内存的内层 zip。
+     */
+    private val zipStack = ArrayDeque<ZipLevel>()
+
+    private data class ZipLevel(val displayName: String, val source: ZipByteSource)
+
     /** 输入框中的链接文本，供界面双向绑定。 */
     fun updateInputUrl(url: String) {
         _uiState.value = _uiState.value.copy(inputUrl = url)
@@ -325,10 +333,92 @@ class VivoPayloadViewModel : ViewModel() {
                 if (_zipState.value.entries.isNotEmpty()) return@withLock
                 _zipState.value = _zipState.value.copy(isLoading = true, error = null)
                 try {
-                    val entries = VivoZipBrowser.listZipEntries(VivoPayloadHttpUtil)
+                    val rootName = VivoPayloadHttpUtil.getFileName()
+                        .ifBlank { "ota.zip" }
+                    zipStack.clear()
+                    zipStack.addLast(ZipLevel(rootName, HttpByteSource(VivoPayloadHttpUtil)))
+                    val entries = VivoZipBrowser.listZipEntries(zipStack.last().source)
                     _zipState.value = _zipState.value.copy(
                         entries = entries,
                         visibleEntries = entries,
+                        breadcrumb = listOf(rootName),
+                        isLoading = false
+                    )
+                } catch (e: Exception) {
+                    zipStack.clear()
+                    _zipState.value = _zipState.value.copy(
+                        isLoading = false,
+                        error = context.getString(mapZipErrorRes(e.message))
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * 进入嵌套 zip。
+     *
+     * 内层 zip 必须完整读出才能定位其 central directory（DEFLATE 无法部分解压），
+     * 因此仍需 ≤10MB 才行——与下载红线一致。
+     */
+    fun openNestedZip(context: Context, entry: ZipEntryInfo) {
+        viewModelScope.launch {
+            zipMutex.withLock {
+                if (zipStack.size >= ZipEntryInfo.MAX_NESTED_DEPTH) {
+                    _zipMessage.emit(context.getString(R.string.zip_nested_too_deep))
+                    return@withLock
+                }
+                if (!entry.canDownload) {
+                    _zipMessage.emit(context.getString(R.string.zip_download_too_large))
+                    return@withLock
+                }
+                _zipState.value = _zipState.value.copy(isLoading = true, error = null)
+                try {
+                    val data = VivoZipBrowser.readEntryBytes(
+                        zipStack.last().source, entry, ZipEntryInfo.DOWNLOAD_LIMIT_BYTES
+                    )
+                    if (!data.complete) {
+                        _zipState.value = _zipState.value.copy(
+                            isLoading = false,
+                            error = context.getString(R.string.zip_download_incomplete)
+                        )
+                        return@withLock
+                    }
+                    val nested = MemoryByteSource(data.bytes)
+                    val entries = VivoZipBrowser.listZipEntries(nested)
+                    val displayName = entry.name.substringAfterLast('/').ifBlank { entry.name }
+                    zipStack.addLast(ZipLevel(displayName, nested))
+                    _zipState.value = _zipState.value.copy(
+                        entries = entries,
+                        visibleEntries = entries,
+                        searchQuery = "",
+                        breadcrumb = zipStack.map { it.displayName },
+                        isLoading = false
+                    )
+                } catch (e: Exception) {
+                    _zipState.value = _zipState.value.copy(
+                        isLoading = false,
+                        error = context.getString(mapZipErrorRes(e.message))
+                    )
+                }
+            }
+        }
+    }
+
+    /** 返回上一层；已在最外层则不作为。父级数据在内存中，无需重新下载。 */
+    fun navigateZipUp(context: Context) {
+        viewModelScope.launch {
+            zipMutex.withLock {
+                if (zipStack.size <= 1) return@withLock
+                zipStack.removeLast()
+                _zipState.value = _zipState.value.copy(isLoading = true, error = null)
+                try {
+                    val entries = VivoZipBrowser.listZipEntries(zipStack.last().source)
+                    _zipState.value = _zipState.value.copy(
+                        entries = entries,
+                        visibleEntries = entries,
+                        searchQuery = "",
+                        breadcrumb = zipStack.map { it.displayName },
                         isLoading = false
                     )
                 } catch (e: Exception) {
@@ -377,6 +467,11 @@ class VivoPayloadViewModel : ViewModel() {
                     preview = if (loadFull) _zipState.value.preview else null
                 )
                 try {
+                    val source = zipStack.lastOrNull()?.source
+                    if (source == null) {
+                        _zipState.value = _zipState.value.copy(isPreviewLoading = false)
+                        return@withLock
+                    }
                     val maxOutput = if (loadFull) {
                         ZipEntryInfo.DOWNLOAD_LIMIT_BYTES
                     } else {
@@ -387,11 +482,28 @@ class VivoPayloadViewModel : ViewModel() {
                     } else {
                         VivoZipBrowser.PREVIEW_INPUT_BYTES.toLong()
                     }
-                    val data = VivoZipBrowser.readEntryBytes(
-                        VivoPayloadHttpUtil, entry, maxOutput, maxInput
-                    )
+                    val data = VivoZipBrowser.readEntryBytes(source, entry, maxOutput, maxInput)
+
+                    // 签名块（CERT.RSA 等）是 DER 二进制，走证书解析而非文本嗅探
+                    if (entry.isSignatureBlock) {
+                        val desc = VivoZipBrowser.decodeSignatureBlock(data.bytes)
+                            ?: context.getString(R.string.zip_preview_not_text)
+                        _zipState.value = _zipState.value.copy(
+                            isPreviewLoading = false,
+                            preview = TextPreview(
+                                text = desc,
+                                encoding = "DER / X.509",
+                                bytesLoaded = data.bytes.size.toLong(),
+                                totalSize = entry.uncompressedSize,
+                                truncated = false,
+                                canCopyAll = desc.toByteArray().size <= ZipEntryInfo.CLIPBOARD_LIMIT_BYTES
+                            )
+                        )
+                        return@withLock
+                    }
+
                     // ADR-001 D6：白名单只决定「是否给入口」，能否预览由内容嗅探拍板。
-                    // 这样无扩展名的 updater-script 能进，而 .pb 会被 NUL 拦截。
+                    // 这样无扩展名的 metadata / updater-script 能进，而 .pb 会被 NUL 拦截。
                     if (!VivoZipBrowser.looksLikeText(data.bytes)) {
                         _zipState.value = _zipState.value.copy(
                             isPreviewLoading = false,
@@ -440,11 +552,16 @@ class VivoPayloadViewModel : ViewModel() {
                     _zipMessage.emit(context.getString(R.string.zip_download_too_large))
                     return@withLock
                 }
+                val source = zipStack.lastOrNull()?.source
+                if (source == null) {
+                    _zipMessage.emit(context.getString(R.string.zip_err_generic))
+                    return@withLock
+                }
                 _zipState.value = _zipState.value.copy(downloadingEntryName = entry.name)
                 val displayName = sanitizeFileName(entry.name.substringAfterLast('/'))
                 try {
                     val data = VivoZipBrowser.readEntryBytes(
-                        VivoPayloadHttpUtil, entry, ZipEntryInfo.DOWNLOAD_LIMIT_BYTES
+                        source, entry, ZipEntryInfo.DOWNLOAD_LIMIT_BYTES
                     )
                     // 产出被 10MB 上限截断 ⇒ 实际大小与 header 声明不符，按 zip bomb 处理。
                     // header 里的 uncompressedSize 是可伪造的，不能只信它。

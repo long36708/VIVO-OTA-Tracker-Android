@@ -103,7 +103,29 @@ data class ZipEntryInfo(
 
     /** ADR-001 D6 白名单初判，决定列表里是否提供「预览」入口；真正的判定在嗅探之后。 */
     val isTextByExtension: Boolean
-        get() = TEXT_EXTENSIONS.any { name.substringAfterLast('/').endsWith(it, ignoreCase = true) }
+        get() {
+            val fileName = name.substringAfterLast('/')
+            return TEXT_EXTENSIONS.any { fileName.endsWith(it, ignoreCase = true) } ||
+                // OTA 包里若干关键文件没有扩展名，按文件名精确匹配
+                TEXT_FILENAMES.any { it.equals(fileName, ignoreCase = true) }
+        }
+
+    /** 嵌套 zip：可继续展开浏览。 */
+    val isNestedZip: Boolean
+        get() = !isDirectory &&
+            name.substringAfterLast('/').endsWith(".zip", ignoreCase = true)
+
+    /** PKCS#7 签名块（CERT.RSA / CERT.DSA / CERT.EC）：按证书信息预览。 */
+    val isSignatureBlock: Boolean
+        get() = !isDirectory &&
+            SIGNATURE_EXTENSIONS.any { name.substringAfterLast('/').endsWith(it, ignoreCase = true) }
+
+    /**
+     * 是否提供「预览」入口。
+     * 文本走嗅探、签名块走证书解析、嵌套 zip 走展开浏览。
+     */
+    val canPreview: Boolean
+        get() = isNestedZip || isSignatureBlock || (isSupported && isTextByExtension)
 
     companion object {
         const val METHOD_STORED = 0
@@ -113,11 +135,24 @@ data class ZipEntryInfo(
         const val PREVIEW_BYTES = 8 * 1024
         /** Binder 事务上限约 1MB，留足余量。超过则不提供「复制全部」（ADR-001 D8）。 */
         const val CLIPBOARD_LIMIT_BYTES = 128 * 1024
+        /** 嵌套层级上限，防 zip bomb 与无限递归。 */
+        const val MAX_NESTED_DEPTH = 3
 
         private val TEXT_EXTENSIONS = listOf(
             ".txt", ".text", ".prop", ".properties", ".sh", ".rc", ".xml", ".json",
             ".cfg", ".conf", ".csv", ".log", ".md", ".ini", ".mf", ".sf", ".script"
         )
+
+        /** OTA 包中无扩展名但确为纯文本的关键文件。 */
+        private val TEXT_FILENAMES = listOf(
+            "metadata",           // META-INF/com/android/metadata
+            "updater-script",     // META-INF/com/google/android/updater-script
+            "otacert",
+            "metadata.pb.bin",
+            "LICENSE", "NOTICE", "README", "CHANGELOG"
+        )
+
+        private val SIGNATURE_EXTENSIONS = listOf(".rsa", ".dsa", ".ec")
     }
 }
 
@@ -145,6 +180,8 @@ data class ZipBrowserState(
     val visibleEntries: List<ZipEntryInfo> = emptyList(),
     val searchQuery: String = "",
     val expanded: Boolean = false,
+    /** 嵌套导航路径，首项为最外层包名。 */
+    val breadcrumb: List<String> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
     val previewEntry: ZipEntryInfo? = null,

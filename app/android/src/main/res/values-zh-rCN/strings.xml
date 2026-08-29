@@ -119,6 +119,9 @@
     <string name="zip_package_files">包内文件</string>
     <string name="zip_search_hint">搜索文件名</string>
     <string name="zip_preview">预览</string>
+    <string name="zip_open_zip">打开</string>
+    <string name="zip_back_up">返回上层</string>
+    <string name="zip_nested_too_deep">嵌套层级过深（最多 3 层）</string>
     <string name="zip_download">下载</string>
     <string name="zip_downloading">下载中…</string>
     <string name="zip_loading">正在加载文件列表…</string>

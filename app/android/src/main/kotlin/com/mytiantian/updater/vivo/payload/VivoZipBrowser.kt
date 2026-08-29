@@ -5,6 +5,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.security.cert.CertificateFactory
+import java.security.cert.X509Certificate
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.charset.Charset
@@ -22,6 +24,48 @@ import kotlin.math.min
  * 依赖 zip「每条目独立压缩」的特性——DEFLATE 条目可单独顺序 inflate，
  * 无需下载其之前的任何数据，这是小流量预览成立的基础。
  */
+/**
+ * 可随机读取的字节源。
+ *
+ * 抽象出它是为了支持嵌套 zip：外层走 HTTP Range，内层则是已读出的内存缓冲。
+ * 若解析函数直接依赖 VivoPayloadHttpUtil，内层 zip 将无从表达。
+ */
+interface ZipByteSource {
+    val size: Long
+    /** 从 offset 起尽量读满 out，返回实际读取字节数。 */
+    suspend fun readAt(offset: Long, out: ByteArray): Int
+}
+
+/** 在线 OTA 包：委托给全局 HTTP 单例（单游标，调用方需串行化）。 */
+class HttpByteSource(private val httpUtil: VivoPayloadHttpUtil) : ZipByteSource {
+    override val size: Long get() = httpUtil.length()
+
+    override suspend fun readAt(offset: Long, out: ByteArray): Int {
+        httpUtil.seek(offset)
+        var total = 0
+        while (total < out.size) {
+            val chunk = out.copyOfRange(total, out.size)
+            val read = httpUtil.readSync(chunk)
+            if (read <= 0) break
+            System.arraycopy(chunk, 0, out, total, read)
+            total += read
+        }
+        return total
+    }
+}
+
+/** 嵌套 zip：内容已完整读出到内存。 */
+class MemoryByteSource(private val data: ByteArray) : ZipByteSource {
+    override val size: Long get() = data.size.toLong()
+
+    override suspend fun readAt(offset: Long, out: ByteArray): Int {
+        if (offset < 0 || offset >= data.size) return 0
+        val n = minOf(out.size.toLong(), data.size - offset).toInt()
+        System.arraycopy(data, offset.toInt(), out, 0, n)
+        return n
+    }
+}
+
 object VivoZipBrowser {
 
     private const val TAG = "VivoZipBrowser"
@@ -51,15 +95,14 @@ object VivoZipBrowser {
      * 枚举 zip central directory 的全部条目。
      * 仅消耗「尾部 4KB + central directory」的流量，与包体大小无关。
      */
-    suspend fun listZipEntries(httpUtil: VivoPayloadHttpUtil): List<ZipEntryInfo> =
+    suspend fun listZipEntries(source: ZipByteSource): List<ZipEntryInfo> =
         withContext(Dispatchers.IO) {
-            val fileLength = httpUtil.length()
+            val fileLength = source.size
             if (fileLength <= 0) throw IOException("NOT_A_VALID_ZIP")
 
             val tailSize = minOf(4096L, fileLength).toInt()
             val tail = ByteArray(tailSize)
-            httpUtil.seek(fileLength - tailSize)
-            readFully(httpUtil, tail)
+            source.readAt(fileLength - tailSize, tail)
 
             val cen = PayloadUtil.locateCentralDirectory(tail, fileLength)
             if (cen.offset < 0 || cen.size <= 0 || cen.size > MAX_CENTRAL_DIRECTORY_BYTES) {
@@ -68,8 +111,7 @@ object VivoZipBrowser {
             Log.i(TAG, "listZipEntries: cenOffset=${cen.offset}, cenSize=${cen.size}")
 
             val central = ByteArray(cen.size.toInt())
-            httpUtil.seek(cen.offset)
-            readFully(httpUtil, central)
+            source.readAt(cen.offset, central)
             val entries = parseCentralDirectory(central)
             Log.i(TAG, "listZipEntries: parsed ${entries.size} entries")
             entries
@@ -158,46 +200,26 @@ object VivoZipBrowser {
     }
 
     /**
-     * 读满整个 out 数组。
-     *
-     * HttpUtil.readSync 走的是单次 Range 请求，服务端若分片或截断返回就会读不满，
-     * 上层拿半截 zip 结构去解析会得出错误结论。这里循环补足。
-     * （不改动 HttpUtil 本身，避免影响既有 payload 解析路径。）
-     */
-    private suspend fun readFully(httpUtil: VivoPayloadHttpUtil, out: ByteArray): Int {
-        var total = 0
-        while (total < out.size) {
-            val chunk = out.copyOfRange(total, out.size)
-            val read = httpUtil.readSync(chunk)
-            if (read <= 0) break
-            System.arraycopy(chunk, 0, out, total, read)
-            total += read
-        }
-        return total
-    }
-
-    /**
      * 读取条目内容。
      *
      * @param maxOutputBytes 产出上限，是防 zip bomb 的最后一道闸：
      *                       header 里的 uncompressedSize 可被伪造，不可只信它（ADR-001 D3）。
      */
     suspend fun readEntryBytes(
-        httpUtil: VivoPayloadHttpUtil,
+        source: ZipByteSource,
         entry: ZipEntryInfo,
         maxOutputBytes: Long,
         maxInputBytes: Long = Long.MAX_VALUE
     ): EntryData = withContext(Dispatchers.IO) {
         if (!entry.isSupported) throw IOException("UNSUPPORTED_ENTRY_METHOD")
 
-        val dataOffset = readEntryDataOffset(httpUtil, entry)
+        val dataOffset = readEntryDataOffset(source, entry)
         Log.i(TAG, "readEntryBytes: '${entry.name}' dataOffset=$dataOffset method=${entry.method}")
 
         if (entry.isStored) {
             val want = minOf(entry.uncompressedSize, maxOutputBytes).toInt()
             val out = ByteArray(want)
-            httpUtil.seek(dataOffset)
-            val read = readFully(httpUtil, out)
+            val read = source.readAt(dataOffset, out)
             return@withContext EntryData(
                 bytes = if (read == want) out else out.copyOf(read),
                 producedBytes = read.toLong(),
@@ -208,23 +230,21 @@ object VivoZipBrowser {
 
         val inputWant = minOf(entry.compressedSize, maxInputBytes).toInt()
         val compressed = ByteArray(inputWant)
-        httpUtil.seek(dataOffset)
-        val compressedRead = readFully(httpUtil, compressed)
+        val compressedRead = source.readAt(dataOffset, compressed)
         val actualInput =
             if (compressedRead == inputWant) compressed else compressed.copyOf(compressedRead)
         inflateRaw(actualInput, maxOutputBytes)
     }
 
     private suspend fun readEntryDataOffset(
-        httpUtil: VivoPayloadHttpUtil,
+        source: ZipByteSource,
         entry: ZipEntryInfo
     ): Long {
-        val available = httpUtil.length() - entry.localHeaderOffset
+        val available = source.size - entry.localHeaderOffset
         if (available <= 0) throw IOException("BAD_LOCAL_HEADER")
         val readSize = minOf(LOCAL_HEADER_READ_BYTES.toLong(), available).toInt()
         val header = ByteArray(readSize)
-        httpUtil.seek(entry.localHeaderOffset)
-        httpUtil.readSync(header)
+        source.readAt(entry.localHeaderOffset, header)
         if (header.size < 30) throw IOException("BAD_LOCAL_HEADER")
 
         val buf = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
@@ -333,5 +353,125 @@ object VivoZipBrowser {
         val crc = CRC32()
         crc.update(bytes)
         return crc.value
+    }
+
+    // ================================================================
+    // 签名块（META-INF/CERT.RSA 等）解析
+    // ================================================================
+
+    /**
+     * 把 PKCS#7 签名块转成可读的证书信息文本。
+     *
+     * CERT.RSA 是 DER 编码的 PKCS#7 SignedData，二进制无法直接预览。
+     * 这里定位其中的 X.509 证书并交给系统 CertificateFactory 解析，
+     * 输出主题/签发者/有效期/公钥/签名算法/指纹。
+     *
+     * 定位算法（已用 openssl 生成的真实样本离线验证）：
+     * 证书普遍 >256 字节，故只匹配 `30 82 XX XX` 形式的 SEQUENCE，
+     * 再校验其内部结构为 tbsCertificate / signatureAlgorithm / signatureValue 三段。
+     * 纯文本、全零、随机数据均已验证零误报。
+     */
+    fun decodeSignatureBlock(der: ByteArray): String? {
+        val certs = parseCertificates(der)
+        if (certs.isEmpty()) return null
+        val sb = StringBuilder()
+        sb.appendLine("PKCS#7 签名块，共 ${certs.size} 个证书")
+        certs.forEachIndexed { index, cert ->
+            sb.appendLine()
+            if (certs.size > 1) sb.appendLine("[$index]")
+            sb.append(cert)
+        }
+        return sb.toString().trimEnd()
+    }
+
+    /** DER 中的一个 TLV。 */
+    private data class Tlv(val tag: Int, val contentStart: Int, val length: Int) {
+        val next: Int get() = contentStart + length
+    }
+
+    private fun readTlv(buf: ByteArray, pos: Int): Tlv? {
+        if (pos + 2 > buf.size) return null
+        val tag = buf[pos].toInt() and 0xFF
+        val first = buf[pos + 1].toInt() and 0xFF
+        var p = pos + 2
+        val length: Int
+        if (first and 0x80 != 0) {
+            val n = first and 0x7F
+            if (n > 4 || p + n > buf.size) return null
+            var v = 0L
+            for (i in 0 until n) v = (v shl 8) or (buf[p + i].toLong() and 0xFF)
+            p += n
+            if (v > Int.MAX_VALUE) return null
+            length = v.toInt()
+        } else {
+            length = first
+        }
+        if (p + length > buf.size) return null
+        return Tlv(tag, p, length)
+    }
+
+    /** 扫描缓冲区，返回每个证书的「起始位置 → 描述文本」。 */
+    private fun parseCertificates(buf: ByteArray): List<String> {
+        val result = ArrayList<String>()
+        var i = 0
+        while (i + 4 <= buf.size) {
+            // 只匹配 30 82 XX XX（2 字节长长度编码的 SEQUENCE）
+            if ((buf[i].toInt() and 0xFF) != 0x30 || (buf[i + 1].toInt() and 0xFF) != 0x82) {
+                i++
+                continue
+            }
+            val outer = readTlv(buf, i) ?: run { i++; continue }
+            if (outer.tag != 0x30 || outer.length < 200) { i++; continue }
+
+            // 内部须为 SEQUENCE(tbs) SEQUENCE(algid) BIT STRING(sig)
+            val tbs = readTlv(buf, outer.contentStart)
+            if (tbs == null || tbs.tag != 0x30) { i++; continue }
+            val algid = readTlv(buf, tbs.next)
+            if (algid == null || algid.tag != 0x30) { i++; continue }
+            val sig = readTlv(buf, algid.next)
+            if (sig == null || sig.tag != 0x03) { i++; continue }
+
+            val headerLen = outer.contentStart - i
+            val certDer = buf.copyOfRange(i, i + headerLen + outer.length)
+            val desc = runCatching { describeCertificate(certDer) }.getOrNull()
+            if (desc != null) result.add(desc)
+            i = outer.next // 跳过整张证书，避免把内部结构当成新证书
+        }
+        return result
+    }
+
+    private fun describeCertificate(certDer: ByteArray): String? {
+        val factory = CertificateFactory.getInstance("X.509")
+        val cert = factory.generateCertificate(certDer.inputStream()) as? X509Certificate
+            ?: return null
+        val sb = StringBuilder()
+        sb.appendLine("主题：${cert.subjectX500Principal.name}")
+        sb.appendLine("签发者：${cert.issuerX500Principal.name}")
+        sb.appendLine("序列号：${cert.serialNumber.toString(16).uppercase()}")
+        sb.appendLine("有效期：${cert.notBefore} ~ ${cert.notAfter}")
+        sb.appendLine("签名算法：${cert.sigAlgName}")
+        sb.appendLine("公钥算法：${cert.publicKey.algorithm} ${keySize(cert.publicKey)}")
+        sb.appendLine("SHA-256：${sha256Hex(cert.encoded)}")
+        val expired = runCatching { cert.checkValidity() }.isFailure
+        if (expired) sb.appendLine("状态：已过期或尚未生效")
+        return sb.toString().trimEnd()
+    }
+
+    private fun keySize(key: java.security.PublicKey): String {
+        return runCatching {
+            when (key) {
+                is java.security.interfaces.RSAPublicKey -> "(${key.modulus.bitLength()} 位)"
+                is java.security.interfaces.ECPublicKey ->
+                    "(${key.params.curve.field.fieldSize} 位)"
+                is java.security.interfaces.DSAPublicKey -> "(${key.params.p.bitLength()} 位)"
+                else -> ""
+            }
+        }.getOrDefault("")
+    }
+
+    private fun sha256Hex(data: ByteArray): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(data)
+        return digest.joinToString("") { "%02X".format(it) }
+            .chunked(2).joinToString(":")
     }
 }
