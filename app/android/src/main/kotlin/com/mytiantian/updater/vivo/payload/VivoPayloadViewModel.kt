@@ -1,13 +1,21 @@
 package com.mytiantian.updater.vivo.payload
 
+import android.content.ContentValues
+import android.content.Context
+import android.net.Uri
+import android.os.Build
 import android.os.Environment
+import android.provider.MediaStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mytiantian.updater.R
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -22,6 +30,24 @@ class VivoPayloadViewModel : ViewModel() {
     val toastEvent = _toastEvent.asSharedFlow()
 
     private var currentPayload: Payload? = null
+
+    // ===== zip 容器内文件浏览（ADR-001 / L0）=====
+
+    private val _zipState = MutableStateFlow(ZipBrowserState())
+    val zipState: StateFlow<ZipBrowserState> = _zipState
+
+    /**
+     * 独立于 toastEvent 的消息通道。
+     * 不新增 PayloadToast 分支——Screen 里对它的 when 是穷尽匹配，加分支会编译失败。
+     */
+    private val _zipMessage = MutableSharedFlow<String>(extraBufferCapacity = 20)
+    val zipMessage = _zipMessage.asSharedFlow()
+
+    /**
+     * 串行化全部 zip 侧 HTTP 操作。
+     * VivoPayloadHttpUtil 是单例且只有一个 position 游标，并发读写会互相踩踏（技术债 4）。
+     */
+    private val zipMutex = Mutex()
 
     /** 从查询结果直接带入下载链接，界面打开后自动解析。 */
     fun parseFromUrl(url: String) {
@@ -227,5 +253,208 @@ class VivoPayloadViewModel : ViewModel() {
             SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                 .format(Date(timestamp * 1000L))
         }.getOrDefault("")
+    }
+
+    // ===== zip 容器内文件浏览（ADR-001 / L0 层）=====
+
+    /** 展开「包内文件」时按需加载；已加载过则不再发请求。 */
+    fun loadZipEntries(context: Context) {
+        viewModelScope.launch {
+            zipMutex.withLock {
+                if (_zipState.value.entries.isNotEmpty()) return@withLock
+                _zipState.value = _zipState.value.copy(isLoading = true, error = null)
+                try {
+                    val entries = VivoZipBrowser.listZipEntries(VivoPayloadHttpUtil)
+                    _zipState.value = _zipState.value.copy(
+                        entries = entries,
+                        visibleEntries = entries,
+                        isLoading = false
+                    )
+                } catch (e: Exception) {
+                    _zipState.value = _zipState.value.copy(
+                        isLoading = false,
+                        error = context.getString(mapZipErrorRes(e.message))
+                    )
+                }
+            }
+        }
+    }
+
+    fun toggleZipExpanded(context: Context) {
+        val expanded = !_zipState.value.expanded
+        _zipState.value = _zipState.value.copy(expanded = expanded)
+        if (expanded) loadZipEntries(context)
+    }
+
+    fun updateZipSearch(query: String) {
+        val all = _zipState.value.entries
+        val q = query.trim()
+        _zipState.value = _zipState.value.copy(
+            searchQuery = query,
+            visibleEntries = if (q.isEmpty()) {
+                all
+            } else {
+                all.filter { it.name.contains(q, ignoreCase = true) }
+            }
+        )
+    }
+
+    /**
+     * 预览文本条目。
+     *
+     * @param loadFull false 时只取前 8KB——DEFLATE 场景实际流量约 2~4KB，
+     *                 因为 zip 每条目独立压缩，读满即可掐断连接（ADR-001 D5）；
+     *                 true 时取完整内容，仍受 10MB 红线约束。
+     */
+    fun previewEntry(context: Context, entry: ZipEntryInfo, loadFull: Boolean = false) {
+        viewModelScope.launch {
+            zipMutex.withLock {
+                _zipState.value = _zipState.value.copy(
+                    previewEntry = entry,
+                    isPreviewLoading = true,
+                    previewError = null,
+                    preview = if (loadFull) _zipState.value.preview else null
+                )
+                try {
+                    val maxOutput = if (loadFull) {
+                        ZipEntryInfo.DOWNLOAD_LIMIT_BYTES
+                    } else {
+                        ZipEntryInfo.PREVIEW_BYTES.toLong()
+                    }
+                    val maxInput = if (loadFull) {
+                        Long.MAX_VALUE
+                    } else {
+                        VivoZipBrowser.PREVIEW_INPUT_BYTES.toLong()
+                    }
+                    val data = VivoZipBrowser.readEntryBytes(
+                        VivoPayloadHttpUtil, entry, maxOutput, maxInput
+                    )
+                    // ADR-001 D6：白名单只决定「是否给入口」，能否预览由内容嗅探拍板。
+                    // 这样无扩展名的 updater-script 能进，而 .pb 会被 NUL 拦截。
+                    if (!VivoZipBrowser.looksLikeText(data.bytes)) {
+                        _zipState.value = _zipState.value.copy(
+                            isPreviewLoading = false,
+                            previewError = context.getString(R.string.zip_preview_not_text)
+                        )
+                        return@withLock
+                    }
+                    val (text, encoding) = VivoZipBrowser.decodeText(data.bytes)
+                    val truncated = !data.complete
+                    _zipState.value = _zipState.value.copy(
+                        isPreviewLoading = false,
+                        preview = TextPreview(
+                            text = text,
+                            encoding = encoding,
+                            bytesLoaded = data.bytes.size.toLong(),
+                            totalSize = entry.uncompressedSize,
+                            truncated = truncated,
+                            // 截断时复制的是「已加载部分」，仍允许（ADR-001 D9）
+                            canCopyAll = text.toByteArray().size <= ZipEntryInfo.CLIPBOARD_LIMIT_BYTES
+                        )
+                    )
+                } catch (e: Exception) {
+                    _zipState.value = _zipState.value.copy(
+                        isPreviewLoading = false,
+                        previewError = context.getString(mapZipErrorRes(e.message))
+                    )
+                }
+            }
+        }
+    }
+
+    fun dismissPreview() {
+        _zipState.value = _zipState.value.copy(
+            previewEntry = null,
+            preview = null,
+            previewError = null,
+            isPreviewLoading = false
+        )
+    }
+
+    /** ADR-001 D3/D12：≤10MB 才可下载，落盘后校验 CRC32 佐证流式 Range 拼接未错位。 */
+    fun downloadEntry(context: Context, entry: ZipEntryInfo) {
+        viewModelScope.launch {
+            zipMutex.withLock {
+                if (!entry.canDownload) {
+                    _zipMessage.emit(context.getString(R.string.zip_download_too_large))
+                    return@withLock
+                }
+                _zipState.value = _zipState.value.copy(downloadingEntryName = entry.name)
+                val displayName = sanitizeFileName(entry.name.substringAfterLast('/'))
+                try {
+                    val data = VivoZipBrowser.readEntryBytes(
+                        VivoPayloadHttpUtil, entry, ZipEntryInfo.DOWNLOAD_LIMIT_BYTES
+                    )
+                    // 产出被 10MB 上限截断 ⇒ 实际大小与 header 声明不符，按 zip bomb 处理。
+                    // header 里的 uncompressedSize 是可伪造的，不能只信它。
+                    if (!data.complete) {
+                        _zipState.value = _zipState.value.copy(downloadingEntryName = null)
+                        _zipMessage.emit(context.getString(R.string.zip_download_incomplete))
+                        return@withLock
+                    }
+                    val crcOk = VivoZipBrowser.crc32(data.bytes) == entry.crc32
+                    val saved = saveEntryToDownloads(context, displayName, data.bytes)
+                    _zipState.value = _zipState.value.copy(downloadingEntryName = null)
+                    _zipMessage.emit(
+                        if (!saved) {
+                            context.getString(R.string.zip_download_failed, displayName)
+                        } else if (crcOk) {
+                            context.getString(R.string.zip_download_success, displayName)
+                        } else {
+                            context.getString(R.string.zip_download_crc_mismatch, displayName)
+                        }
+                    )
+                } catch (e: Exception) {
+                    _zipState.value = _zipState.value.copy(downloadingEntryName = null)
+                    _zipMessage.emit(context.getString(mapZipErrorRes(e.message)))
+                }
+            }
+        }
+    }
+
+    /**
+     * ADR-001 D4：Android 10+ 走 MediaStore.Downloads（零权限且用户可见），
+     * 低版本回退 App 私有目录。文件均 ≤10MB，整块读入内存后一次性写出即可。
+     */
+    private fun saveEntryToDownloads(context: Context, displayName: String, data: ByteArray): Boolean {
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, displayName)
+                    put(MediaStore.Downloads.MIME_TYPE, "application/octet-stream")
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+                val resolver = context.contentResolver
+                val uri: Uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    ?: return false
+                resolver.openOutputStream(uri)?.use { it.write(data) }
+                values.clear()
+                values.put(MediaStore.Downloads.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+                true
+            } else {
+                val dir = File(
+                    context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
+                    "VivoOtaTracker"
+                )
+                if (!dir.exists()) dir.mkdirs()
+                File(dir, displayName).writeBytes(data)
+                true
+            }
+        }.getOrDefault(false)
+    }
+
+    private fun sanitizeFileName(name: String): String {
+        return name.replace(Regex("[\\\\/:*?\"<>|]"), "_").ifBlank { "entry" }
+    }
+
+    private fun mapZipErrorRes(raw: String?): Int {
+        return when (raw) {
+            "NOT_A_VALID_ZIP" -> R.string.zip_err_not_valid_zip
+            "BAD_LOCAL_HEADER" -> R.string.zip_err_bad_local_header
+            "BAD_DEFLATE_DATA" -> R.string.zip_err_bad_deflate
+            "UNSUPPORTED_ENTRY_METHOD" -> R.string.zip_err_unsupported_method
+            else -> R.string.zip_err_generic
+        }
     }
 }
