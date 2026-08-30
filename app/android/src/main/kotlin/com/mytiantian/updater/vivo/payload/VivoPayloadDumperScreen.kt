@@ -156,7 +156,7 @@ fun PayloadDumperScreen(
                             fontWeight = FontWeight.Medium
                         )
                         Button(
-                            onClick = { viewModel.extractSelectedPartitions() },
+                            onClick = { viewModel.extractSelectedPartitions(context) },
                             colors = ButtonDefaults.buttonColorsPrimary()
                         ) {
                             Text(stringResource(R.string.payload_extract_selected))
@@ -330,7 +330,7 @@ fun PayloadDumperScreen(
                             isExtracting = uiState.isExtracting,
                             onToggleSelect = { viewModel.toggleSelection(partitionInfo.partitionName) },
                             onItemClick = { viewModel.selectPartition(partitionInfo.partitionName) },
-                            onExtract = { viewModel.extractPartition(partitionInfo) }
+                            onExtract = { viewModel.extractPartition(context, partitionInfo) }
                         )
                     }
                 }
@@ -346,7 +346,7 @@ fun PayloadDumperScreen(
         PartitionDetailDialog(
             partitionInfo = partitionInfo,
             onDismiss = { viewModel.clearSelectedPartition() },
-            onExtract = { viewModel.extractPartition(partitionInfo) }
+            onExtract = { viewModel.extractPartition(context, partitionInfo) }
         )
     }
 
@@ -461,11 +461,13 @@ private fun PartitionItem(
                     )
                 }
             } else if (!isExtracting) {
+                // 与包内文件列表的操作按钮保持一致的紧凑尺寸
                 Button(
                     onClick = onExtract,
+                    modifier = Modifier.height(34.dp),
                     colors = ButtonDefaults.buttonColorsPrimary()
                 ) {
-                    Text(stringResource(R.string.extract))
+                    Text(stringResource(R.string.extract), fontSize = 12.sp)
                 }
             }
         }

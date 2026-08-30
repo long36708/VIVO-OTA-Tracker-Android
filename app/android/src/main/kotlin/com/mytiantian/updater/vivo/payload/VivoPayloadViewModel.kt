@@ -216,10 +216,10 @@ class VivoPayloadViewModel : ViewModel() {
         }
     }
 
-    fun extractPartition(partitionInfo: PartitionInfo) {
+    fun extractPartition(context: Context, partitionInfo: PartitionInfo) {
         val payload = currentPayload ?: return
         viewModelScope.launch {
-            val success = doExtract(payload, partitionInfo)
+            val success = doExtract(context, payload, partitionInfo)
             if (success) {
                 _toastEvent.emit(PayloadToast.ExtractSuccess(partitionInfo.partitionName))
             } else {
@@ -228,7 +228,7 @@ class VivoPayloadViewModel : ViewModel() {
         }
     }
 
-    fun extractSelectedPartitions() {
+    fun extractSelectedPartitions(context: Context) {
         val payload = currentPayload ?: return
         val selected = _uiState.value.selectedPartitions
             .mapNotNull { name -> _uiState.value.partitions.find { it.partitionName == name } }
@@ -239,7 +239,7 @@ class VivoPayloadViewModel : ViewModel() {
             var success = 0
             var fail = 0
             for (partition in selected) {
-                val ok = doExtract(payload, partition)
+                val ok = doExtract(context, payload, partition)
                 if (ok) success++ else fail++
                 if (ok) {
                     _toastEvent.emit(PayloadToast.ExtractSuccess(partition.partitionName))
@@ -255,7 +255,7 @@ class VivoPayloadViewModel : ViewModel() {
         }
     }
 
-    private suspend fun doExtract(payload: Payload, partitionInfo: PartitionInfo): Boolean {
+    private suspend fun doExtract(context: Context, payload: Payload, partitionInfo: PartitionInfo): Boolean {
         markDownloading(partitionInfo.partitionName, true)
         try {
             val safeName = payload.fileName
@@ -263,10 +263,15 @@ class VivoPayloadViewModel : ViewModel() {
                 .removeSuffix(".zip")
                 .replace(Regex("[\\\\/:*?\"<>|]"), "_")
                 .ifBlank { "payload" }
-            val outputDir = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            // ADR-002 修复：targetSdk=37 且仅有 INTERNET 权限，直写
+            // Environment.getExternalStoragePublicDirectory 会 Permission denied。
+            // 改为先落 App 私有目录（零权限），再流式搬进 MediaStore.Downloads。
+            val tempDir = File(
+                context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
                 "VivoOtaTracker/$safeName"
-            ).absolutePath
+            )
+            if (!tempDir.exists()) tempDir.mkdirs()
+            val tempFile = File(tempDir, "${partitionInfo.partitionName}.img")
 
             val partitionUpdate = payload.deltaArchiveManifest.partitionsList.find {
                 it.partitionName == partitionInfo.partitionName
@@ -275,13 +280,16 @@ class VivoPayloadViewModel : ViewModel() {
             PayloadUtil.extractPartition(
                 partitionUpdate,
                 VivoPayloadHttpUtil,
-                outputDir,
+                tempDir.absolutePath,
                 payload
             ) { progress ->
                 updateProgress(partitionInfo.partitionName, progress)
             }
+
+            val saved = saveImageToDownloads(context, "${partitionInfo.partitionName}.img", tempFile)
+            tempFile.delete()
             markDownloading(partitionInfo.partitionName, false)
-            return true
+            return saved
         } catch (e: Exception) {
             markDownloading(partitionInfo.partitionName, false)
             return false
@@ -696,6 +704,47 @@ class VivoPayloadViewModel : ViewModel() {
 
     private fun sanitizeFileName(name: String): String {
         return name.replace(Regex("[\\\\/:*?\"<>|]"), "_").ifBlank { "entry" }
+    }
+
+    /**
+     * 分区镜像通常很大（GB 级），不能整块读入内存。
+     * 走 MediaStore.Downloads 分块流式写出（零权限、用户可见），
+     * 低版本回退 App 私有目录。写入成功后由调用方负责删除源临时文件。
+     */
+    private fun saveImageToDownloads(context: Context, displayName: String, src: File): Boolean {
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, displayName)
+                    put(MediaStore.Downloads.MIME_TYPE, "application/octet-stream")
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+                val resolver = context.contentResolver
+                val uri: Uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    ?: return false
+                resolver.openOutputStream(uri)?.use { out ->
+                    src.inputStream().use { input ->
+                        val buf = ByteArray(8 * 1024 * 1024)
+                        var read: Int
+                        while (input.read(buf).also { read = it } != -1) {
+                            out.write(buf, 0, read)
+                        }
+                    }
+                }
+                values.clear()
+                values.put(MediaStore.Downloads.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+                true
+            } else {
+                val dir = File(
+                    context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
+                    "VivoOtaTracker"
+                )
+                if (!dir.exists()) dir.mkdirs()
+                src.copyTo(File(dir, displayName), overwrite = true)
+                true
+            }
+        }.getOrDefault(false)
     }
 
     private fun mapZipErrorRes(raw: String?): Int {
