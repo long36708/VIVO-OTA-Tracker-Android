@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -464,7 +465,7 @@ private fun PartitionItem(
                 // 与包内文件列表的操作按钮保持一致的紧凑尺寸
                 Button(
                     onClick = onExtract,
-                    modifier = Modifier.height(34.dp),
+                    modifier = Modifier.requiredHeight(34.dp),
                     colors = ButtonDefaults.buttonColorsPrimary()
                 ) {
                     Text(stringResource(R.string.extract), fontSize = 12.sp)
