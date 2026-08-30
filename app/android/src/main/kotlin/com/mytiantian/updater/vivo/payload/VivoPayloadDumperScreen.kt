@@ -5,14 +5,9 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.PathData
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -469,19 +464,20 @@ private fun PartitionItem(
                     )
                 }
             } else if (!isExtracting) {
-                // 紧凑图标按钮：圆形主色背景 + 下载箭头，避免文字按钮被 miuix 内边距裁切
+                // 自绘紧凑文字按钮：圆角主色背景 + 白字，padding 完全可控，
+                // 规避 miuix Button 内置 contentPadding 把「提取」两字裁切的问题
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
+                        .clip(RoundedCornerShape(8.dp))
                         .background(MiuixTheme.colorScheme.primary)
-                        .clickable(onClick = onExtract),
+                        .clickable(onClick = onExtract)
+                        .padding(horizontal = 14.dp, vertical = 7.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Image(
-                        painter = rememberVectorPainter(image = extractDownloadIcon),
-                        contentDescription = stringResource(R.string.extract),
-                        modifier = Modifier.size(20.dp)
+                    Text(
+                        text = stringResource(R.string.extract),
+                        fontSize = 13.sp,
+                        color = Color.White
                     )
                 }
             }
@@ -607,39 +603,4 @@ private fun ZipBrowserEntryCard(
             )
         }
     }
-}
-
-/**
- * 下载箭头图标（Material 风格 file_download），白底，用于提取图标按钮。
- * 不依赖 material-icons-extended，直接用 ImageVector 构建。
- */
-private val extractDownloadIcon: ImageVector by lazy {
-    ImageVector.Builder(
-        name = "ExtractDownload",
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
-        viewportWidth = 24f,
-        viewportHeight = 24f
-    ).addPath(
-        pathData = PathData {
-            moveTo(19f, 9f)
-            lineToRelative(-7f, -7f)
-            lineToRelative(-7f, 7f)
-            horizontalLineTo(4f)
-            verticalLineTo(15f)
-            horizontalLineTo(10f)
-            verticalLineTo(9f)
-            horizontalLineTo(14f)
-            verticalLineTo(15f)
-            horizontalLineTo(20f)
-            close()
-            moveTo(5f, 18f)
-            verticalLineTo(20f)
-            horizontalLineTo(19f)
-            verticalLineTo(18f)
-            horizontalLineTo(5f)
-            close()
-        },
-        fill = SolidColor(Color.White)
-    ).build()
 }
