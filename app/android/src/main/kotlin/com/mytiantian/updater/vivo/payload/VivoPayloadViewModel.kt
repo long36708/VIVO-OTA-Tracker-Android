@@ -139,6 +139,8 @@ class VivoPayloadViewModel : ViewModel() {
     fun parsePayload(url: String) {
         val target = url.trim()
         viewModelScope.launch {
+            // VivoPayloadHttpUtil 是单游标单例，zip 浏览也用它；统一用 zipMutex 串行，避免并发踩踏。
+            zipMutex.withLock {
             if (!target.startsWith("http://") && !target.startsWith("https://")) {
                 _uiState.value = _uiState.value.copy(
                     isParsing = false,
@@ -198,6 +200,7 @@ class VivoPayloadViewModel : ViewModel() {
                     error = msg
                 )
                 _toastEvent.emit(PayloadToast.Error(msg))
+            }
             }
         }
     }

@@ -50,6 +50,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
@@ -72,7 +73,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mytiantian.updater.R
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -99,6 +102,7 @@ fun VivoApp(viewModel: VivoOtaViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsState()
     var showAbout by remember { mutableStateOf(false) }
     var showPayloadDumper by remember { mutableStateOf(false) }
+    var changelogEntry by remember { mutableStateOf<QueryHistoryEntry?>(null) }
     val payloadViewModel: VivoPayloadViewModel = viewModel()
     val context = LocalContext.current
     val darkMode = isSystemInDarkTheme()
@@ -229,7 +233,18 @@ fun VivoApp(viewModel: VivoOtaViewModel = viewModel()) {
                     }
                 }
                 if (state.history.isNotEmpty()) {
-                    item { HistoryCard(state, viewModel) }
+                    item {
+                        HistoryCard(
+                            state = state,
+                            viewModel = viewModel,
+                            payloadViewModel = payloadViewModel,
+                            onViewPartitions = { url ->
+                                payloadViewModel.parseFromUrl(url)
+                                showPayloadDumper = true
+                            },
+                            onViewChangelog = { changelogEntry = it }
+                        )
+                    }
                 }
             }
         }
@@ -240,6 +255,109 @@ fun VivoApp(viewModel: VivoOtaViewModel = viewModel()) {
                 viewModel = payloadViewModel,
                 onBack = { showPayloadDumper = false }
             )
+        }
+        if (changelogEntry != null) {
+            ChangelogScreen(
+                entry = changelogEntry!!,
+                viewModel = viewModel,
+                onBack = { changelogEntry = null }
+            )
+        }
+    }
+}
+
+/**
+ * 独立的更新日志页：从历史记录打开，标题自带该历史项的机型/版本号，
+ * 自行管理日志加载状态，完全不触碰查询页的全局 changelogContent，
+ * 避免“日志版本号”与“当前查询结果版本号”混淆。
+ */
+@Composable
+private fun ChangelogScreen(
+    entry: QueryHistoryEntry,
+    viewModel: VivoOtaViewModel,
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val copiedMsg = stringResource(R.string.copied)
+    val title = if (entry.model.isNotEmpty()) entry.model else entry.codename
+    val subtitle = if (entry.resultVersion.isNotEmpty()) entry.resultVersion else entry.swVersion
+    var content by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(entry.changelogUrl) {
+        loading = true
+        content = withContext(Dispatchers.IO) { viewModel.getChangelog(entry.changelogUrl) }
+        loading = false
+    }
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            SmallTopAppBar(
+                title = stringResource(R.string.changelog_title),
+                navigationIcon = {
+                    Text(
+                        text = "←",
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .clickable { onBack() },
+                        fontSize = 20.sp
+                    )
+                },
+                scrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MiuixTheme.colorScheme.background)
+                .padding(
+                    top = paddingValues.calculateTopPadding() + 16.dp,
+                    bottom = paddingValues.calculateBottomPadding() + 32.dp,
+                    start = 16.dp,
+                    end = 16.dp
+                )
+                .verticalScroll(rememberScrollState())
+        ) {
+            if (title.isNotEmpty() || subtitle.isNotEmpty()) {
+                Text(
+                    text = "$title $subtitle".trim(),
+                    fontSize = 15.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
+            if (loading) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                    Text(
+                        stringResource(R.string.loading),
+                        modifier = Modifier.padding(start = 12.dp),
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    )
+                }
+            } else {
+                val text = content ?: stringResource(R.string.no_changelog)
+                Text(
+                    text = text,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    fontSize = 13.sp,
+                    modifier = Modifier.combinedClickable(
+                        onClick = {},
+                        onLongClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            cb.setPrimaryClip(ClipData.newPlainText("changelog", text))
+                            Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                )
+            }
         }
     }
 }
@@ -671,7 +789,13 @@ private fun ResultCard(
 }
 
 @Composable
-private fun HistoryCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
+private fun HistoryCard(
+    state: VivoOtaUiState,
+    viewModel: VivoOtaViewModel,
+    payloadViewModel: VivoPayloadViewModel,
+    onViewPartitions: (String) -> Unit,
+    onViewChangelog: (QueryHistoryEntry) -> Unit
+) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val copiedMsg = stringResource(R.string.copied)
@@ -750,7 +874,10 @@ private fun HistoryCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
                                 viewModel = viewModel,
                                 context = context,
                                 haptic = haptic,
-                                copiedMsg = copiedMsg
+                                copiedMsg = copiedMsg,
+                                payloadViewModel = payloadViewModel,
+                                onViewPartitions = onViewPartitions,
+                                onViewChangelog = onViewChangelog
                             )
                         }
                     }
@@ -820,7 +947,10 @@ private fun SwipeToDeleteHistoryEntry(
     viewModel: VivoOtaViewModel,
     context: Context,
     haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
-    copiedMsg: String
+    copiedMsg: String,
+    payloadViewModel: VivoPayloadViewModel,
+    onViewPartitions: (String) -> Unit,
+    onViewChangelog: (QueryHistoryEntry) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val offsetX = remember(entry.timestamp) { Animatable(0f) }
@@ -913,6 +1043,50 @@ private fun SwipeToDeleteHistoryEntry(
                         }
                     )
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MiuixTheme.colorScheme.primary)
+                            .clickable { onViewPartitions(entry.downloadUrl) }
+                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.payload_dumper),
+                            color = Color.White,
+                            fontSize = 13.sp
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MiuixTheme.colorScheme.primaryContainer)
+                            .clickable { viewModel.fillHistoryBack(entry) }
+                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.btn_fill),
+                            color = MiuixTheme.colorScheme.onPrimaryContainer,
+                            fontSize = 13.sp
+                        )
+                    }
+                    if (entry.changelogUrl.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MiuixTheme.colorScheme.primaryContainer)
+                                .clickable { onViewChangelog(entry) }
+                                .padding(horizontal = 14.dp, vertical = 7.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.btn_changelog),
+                                color = MiuixTheme.colorScheme.onPrimaryContainer,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
             }
         }
     }

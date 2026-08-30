@@ -44,6 +44,9 @@
     <string name="update_date">วันที่อัปเดต: %1$s</string>
     <string name="btn_download">ดาวน์โหลด</string>
     <string name="btn_copy_link">คัดลอกลิงก์</string>
+    <string name="btn_fill">กรอก</string>
+    <string name="btn_changelog">บันทึกการเปลี่ยนแปลง</string>
+    <string name="back">กลับ</string>
     <string name="btn_copy_version">คัดลอกเวอร์ชัน</string>
     <string name="btn_copy_changelog">คัดลอกบันทึกการเปลี่ยนแปลง</string>
     <string name="copied">คัดลอกแล้ว</string>

@@ -22,7 +22,19 @@ data class QueryHistoryEntry(
     val resultVersion: String,
     val fileSize: String,
     val downloadUrl: String,
-    val channel: String = "NORMAL"
+    val channel: String = "NORMAL",
+    // ===== 查询条件（用于一键回填表单）=====
+    val querySoftwareVersion: String = "",
+    val manualMode: Boolean = false,
+    val manualCodename: String = "",
+    val manualModelSwVer: String = "",
+    val manualModelName: String = "",
+    val androidVersion: Int = 15,
+    val deviceType: String = "phone",
+    val isFullPackage: Boolean = true,
+    val queryChannel: String = "NORMAL",
+    val queryDomain: String = "CN",
+    val changelogUrl: String = ""
 )
 
 data class VivoOtaUiState(

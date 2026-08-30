@@ -44,6 +44,9 @@
     <string name="update_date">Tanggal pembaruan: %1$s</string>
     <string name="btn_download">Unduh</string>
     <string name="btn_copy_link">Salin tautan</string>
+    <string name="btn_fill">Isi</string>
+    <string name="btn_changelog">Changelog</string>
+    <string name="back">Kembali</string>
     <string name="btn_copy_version">Salin versi</string>
     <string name="btn_copy_changelog">Salin catatan perubahan</string>
     <string name="copied">Tersalin</string>

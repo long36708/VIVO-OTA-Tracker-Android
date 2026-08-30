@@ -44,6 +44,9 @@
     <string name="update_date">अपडेट तिथि: %1$s</string>
     <string name="btn_download">डाउनलोड</string>
     <string name="btn_copy_link">लिंक कॉपी करें</string>
+    <string name="btn_fill">भरें</string>
+    <string name="btn_changelog">चेंजलॉग</string>
+    <string name="back">वापस</string>
     <string name="btn_copy_version">संस्करण कॉपी करें</string>
     <string name="btn_copy_changelog">बदलाव लॉग कॉपी करें</string>
     <string name="copied">कॉपी हो गया</string>

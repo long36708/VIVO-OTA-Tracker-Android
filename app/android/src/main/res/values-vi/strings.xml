@@ -44,6 +44,9 @@
     <string name="update_date">Ngày cập nhật: %1$s</string>
     <string name="btn_download">Tải xuống</string>
     <string name="btn_copy_link">Sao chép liên kết</string>
+    <string name="btn_fill">Điền</string>
+    <string name="btn_changelog">Nhật ký thay đổi</string>
+    <string name="back">Quay lại</string>
     <string name="btn_copy_version">Sao chép phiên bản</string>
     <string name="btn_copy_changelog">Sao chép nhật ký</string>
     <string name="copied">Đã sao chép</string>

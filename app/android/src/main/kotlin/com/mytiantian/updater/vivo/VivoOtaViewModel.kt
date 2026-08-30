@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.mytiantian.updater.AndroidAppContext
 import com.mytiantian.updater.R
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -202,6 +203,15 @@ class VivoOtaViewModel : ViewModel() {
         }
     }
 
+    /**
+     * 从历史记录按需读取更新日志：纯读取，不写入全局 changelogContent，
+     * 由独立的日志页自行管理加载状态，避免与查询结果的版本号混淆。
+     */
+    suspend fun getChangelog(url: String): String? = withContext(Dispatchers.IO) {
+        client.fetchChangelog(url)
+    }
+
+
     private fun detectDeviceType(series: String): String {
         return if (series.contains("平板") || series.contains("穿戴")) "tablet" else "phone"
     }
@@ -250,7 +260,23 @@ class VivoOtaViewModel : ViewModel() {
 
                 if (hasUpdate) {
                     val ctx = AndroidAppContext.getApplicationContext()!!
-                    addToHistory(modelName, codename, state.softwareVersion, result)
+                    addToHistory(
+                        model = modelName,
+                        codename = codename,
+                        swVersion = state.softwareVersion,
+                        result = result,
+                        querySoftwareVersion = state.softwareVersion,
+                        manualMode = state.manualMode,
+                        manualCodename = state.manualCodename,
+                        manualModelSwVer = state.manualModelSwVer,
+                        manualModelName = state.manualModelName,
+                        androidVersion = state.androidVersion,
+                        deviceType = state.deviceType,
+                        isFullPackage = state.isFullPackage,
+                        queryChannel = state.queryChannel,
+                        queryDomain = state.queryDomain,
+                        changelogUrl = result.changelogUrl
+                    )
                     _uiState.update {
                         it.copy(isLoading = false, result = result, toastMessage = ctx.getString(R.string.toast_success))
                     }
@@ -277,26 +303,99 @@ class VivoOtaViewModel : ViewModel() {
         model: String,
         codename: String,
         swVersion: String,
-        result: VivoOtaResult
+        result: VivoOtaResult,
+        querySoftwareVersion: String,
+        manualMode: Boolean,
+        manualCodename: String,
+        manualModelSwVer: String,
+        manualModelName: String,
+        androidVersion: Int,
+        deviceType: String,
+        isFullPackage: Boolean,
+        queryChannel: String,
+        queryDomain: String,
+        changelogUrl: String
     ) {
+        val now = System.currentTimeMillis()
         val entry = QueryHistoryEntry(
-            timestamp = System.currentTimeMillis(),
+            timestamp = now,
             model = model,
             codename = codename,
             swVersion = swVersion,
             resultVersion = result.updateVersion,
             fileSize = result.fileSizeMb,
             downloadUrl = result.downloadUrl,
-            channel = result.channel
+            channel = result.channel,
+            querySoftwareVersion = querySoftwareVersion,
+            manualMode = manualMode,
+            manualCodename = manualCodename,
+            manualModelSwVer = manualModelSwVer,
+            manualModelName = manualModelName,
+            androidVersion = androidVersion,
+            deviceType = deviceType,
+            isFullPackage = isFullPackage,
+            queryChannel = queryChannel,
+            queryDomain = queryDomain,
+            changelogUrl = changelogUrl
         )
-        val updated = (listOf(entry) + _uiState.value.history).take(20)
+        val current = _uiState.value.history.toMutableList()
+        // 去重：以"查询条件签名"为键（而非 downloadUrl，后者常含动态签名/时间戳参数，每次都不同）。
+        val sig = querySignature(entry)
+        val dupIndex = current.indexOfFirst { querySignature(it) == sig }
+        if (dupIndex >= 0) {
+            current[dupIndex] = entry
+        } else {
+            current.add(entry)
+        }
+        // 按查询时间降序排序（最新在前），并截断到最多 20 条。
+        val updated = current.sortedByDescending { it.timestamp }.take(20)
         _uiState.update { it.copy(history = updated) }
         saveHistory(updated)
     }
 
+    /**
+     * 查询条件签名：把能唯一确定"这次查的是什么"的输入字段归一化成一个字符串。
+     * 排除 timestamp / downloadUrl / 结果字段（这些每次都可能变化，不能作为判重依据）。
+     * 相同查询条件必然生成相同签名，从而正确去重。
+     */
+    private fun querySignature(e: QueryHistoryEntry): String =
+        listOf(
+            e.manualMode,
+            e.manualCodename.trim(),
+            e.manualModelSwVer.trim(),
+            e.manualModelName.trim(),
+            e.querySoftwareVersion.trim(),
+            e.androidVersion,
+            e.deviceType.trim(),
+            e.isFullPackage,
+            e.queryChannel.trim(),
+            e.queryDomain.trim()
+        ).joinToString("|")
+
     fun clearHistory() {
         _uiState.update { it.copy(history = emptyList()) }
         saveHistory(emptyList())
+    }
+
+    /**
+     * 一键回填：把历史记录中的查询条件写回表单状态。
+     * 仅填充表单，不自动发起查询，由用户自行点击查询按钮。
+     */
+    fun fillHistoryBack(entry: QueryHistoryEntry) {
+        _uiState.update {
+            it.copy(
+                manualMode = entry.manualMode,
+                manualCodename = entry.manualCodename,
+                manualModelSwVer = entry.manualModelSwVer,
+                manualModelName = entry.manualModelName,
+                softwareVersion = entry.querySoftwareVersion,
+                androidVersion = entry.androidVersion,
+                deviceType = entry.deviceType,
+                isFullPackage = entry.isFullPackage,
+                queryChannel = entry.queryChannel,
+                queryDomain = entry.queryDomain
+            )
+        }
     }
 
     private fun loadHistory() {
@@ -316,11 +415,24 @@ class VivoOtaViewModel : ViewModel() {
                         resultVersion = o.optString("resultVersion", ""),
                         fileSize = o.optString("fileSize", ""),
                         downloadUrl = o.optString("downloadUrl", ""),
-                        channel = o.optString("channel", "NORMAL")
+                        channel = o.optString("channel", "NORMAL"),
+                        querySoftwareVersion = o.optString("querySoftwareVersion", ""),
+                        manualMode = o.optBoolean("manualMode", false),
+                        manualCodename = o.optString("manualCodename", ""),
+                        manualModelSwVer = o.optString("manualModelSwVer", ""),
+                        manualModelName = o.optString("manualModelName", ""),
+                        androidVersion = o.optInt("androidVersion", 15),
+                        deviceType = o.optString("deviceType", "phone"),
+                        isFullPackage = o.optBoolean("isFullPackage", true),
+                        queryChannel = o.optString("queryChannel", "NORMAL"),
+                        queryDomain = o.optString("queryDomain", "CN"),
+                        changelogUrl = o.optString("changelogUrl", "")
                     )
                 )
             }
-            _uiState.update { it.copy(history = list) }
+            // 兜底：按查询时间降序排序（最新在前），兼容早期未排序的存储数据。
+            val sorted = list.sortedByDescending { it.timestamp }
+            _uiState.update { it.copy(history = sorted) }
         } catch (e: Exception) {
             Log.w("VivoOtaViewModel", "Failed to load history", e)
         }
@@ -339,6 +451,17 @@ class VivoOtaViewModel : ViewModel() {
                     put("fileSize", e.fileSize)
                     put("downloadUrl", e.downloadUrl)
                     put("channel", e.channel)
+                    put("querySoftwareVersion", e.querySoftwareVersion)
+                    put("manualMode", e.manualMode)
+                    put("manualCodename", e.manualCodename)
+                    put("manualModelSwVer", e.manualModelSwVer)
+                    put("manualModelName", e.manualModelName)
+                    put("androidVersion", e.androidVersion)
+                    put("deviceType", e.deviceType)
+                    put("isFullPackage", e.isFullPackage)
+                    put("queryChannel", e.queryChannel)
+                    put("queryDomain", e.queryDomain)
+                    put("changelogUrl", e.changelogUrl)
                 })
             }
             prefs.edit().putString("history", arr.toString()).apply()

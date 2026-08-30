@@ -44,6 +44,9 @@
     <string name="update_date">更新日期: %1$s</string>
     <string name="btn_download">下載</string>
     <string name="btn_copy_link">複製連結</string>
+    <string name="btn_fill">填充</string>
+    <string name="btn_changelog">更新日誌</string>
+    <string name="back">返回</string>
     <string name="btn_copy_version">複製版本號</string>
     <string name="btn_copy_changelog">複製日誌</string>
     <string name="copied">已複製</string>
