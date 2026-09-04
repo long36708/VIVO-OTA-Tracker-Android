@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">VIVO OTA Tracker</string>
+    <string name="app_name">VIVO OTA Tracker Plus</string>
 
     <!-- Crypto status -->
     <string name="crypto_ready">● 加密引擎就緒</string>

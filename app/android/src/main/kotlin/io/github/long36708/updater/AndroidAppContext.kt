@@ -1,4 +1,4 @@
-package com.mytiantian.updater
+package io.github.long36708.updater
 
 import android.annotation.SuppressLint
 import android.content.Context

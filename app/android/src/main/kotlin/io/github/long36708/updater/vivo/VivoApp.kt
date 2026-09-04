@@ -1,4 +1,4 @@
-package com.mytiantian.updater.vivo
+package io.github.long36708.updater.vivo
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -71,7 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mytiantian.updater.R
+import io.github.long36708.updater.R
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -94,8 +94,8 @@ import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.darkColorScheme
 import top.yukonga.miuix.kmp.theme.lightColorScheme
-import com.mytiantian.updater.vivo.payload.PayloadDumperScreen
-import com.mytiantian.updater.vivo.payload.VivoPayloadViewModel
+import io.github.long36708.updater.vivo.payload.PayloadDumperScreen
+import io.github.long36708.updater.vivo.payload.VivoPayloadViewModel
 
 @Composable
 fun VivoApp(viewModel: VivoOtaViewModel = viewModel()) {
@@ -1167,8 +1167,8 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(stringResource(R.string.app_name), fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                    val appVersion = "v" + com.mytiantian.updater.AndroidAppContext.versionName
-                    val appVersionCode = com.mytiantian.updater.AndroidAppContext.versionCode
+                    val appVersion = "v" + io.github.long36708.updater.AndroidAppContext.versionName
+                    val appVersionCode = io.github.long36708.updater.AndroidAppContext.versionCode
                     Text(
                         text = "$appVersion ($appVersionCode)",
                         fontSize = 13.sp,

@@ -1,11 +1,11 @@
-package com.mytiantian.updater.vivo
+package io.github.long36708.updater.vivo
 
 import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mytiantian.updater.AndroidAppContext
-import com.mytiantian.updater.R
+import io.github.long36708.updater.AndroidAppContext
+import io.github.long36708.updater.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow

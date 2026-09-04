@@ -1,4 +1,4 @@
-package com.mytiantian.updater.vivo.payload
+package io.github.long36708.updater.vivo.payload
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -40,7 +40,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mytiantian.updater.R
+import io.github.long36708.updater.R
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card

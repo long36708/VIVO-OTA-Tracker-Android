@@ -1,8 +1,8 @@
-package com.mytiantian.updater.vivo
+package io.github.long36708.updater.vivo
 
 import android.content.Context
 import android.util.Log
-import com.mytiantian.updater.crypto.VivoCrypto
+import io.github.long36708.updater.crypto.VivoCrypto
 import java.io.BufferedReader
 import java.io.ByteArrayInputStream
 import java.io.DataInputStream

@@ -1,4 +1,4 @@
-package com.mytiantian.updater.vivo.payload
+package io.github.long36708.updater.vivo.payload
 
 import chromeos_update_engine.UpdateMetadata
 

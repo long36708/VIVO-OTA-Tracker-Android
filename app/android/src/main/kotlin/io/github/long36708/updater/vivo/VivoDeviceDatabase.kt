@@ -1,4 +1,4 @@
-package com.mytiantian.updater.vivo
+package io.github.long36708.updater.vivo
 
 import android.content.Context
 import org.json.JSONObject

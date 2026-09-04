@@ -210,7 +210,7 @@ KEY_PASSWORD=VivoOta@2026
   -keep class com.vivo.seckeysdk.utils.** { *; }
   -dontwarn com.vivo.seckeysdk.**
   ```
-  （`com.mytiantian.updater.**` 本就在 `-keep` 里，无需再补。）
+  （`io.github.long36708.updater.**` 本就在 `-keep` 里，无需再补。）
 - **验证方式**：本机重打 release 包 `BUILD SUCCESSFUL in 3m 35s`，`libvivoseckey.so` 仍正常打包；
   **UI 是否真的不卡需在真机（vivo 设备）实测**（`adb logcat | grep VivoCrypto` 看
   `Native init() => false` / `Using remote crypto server` 进一步定位）。

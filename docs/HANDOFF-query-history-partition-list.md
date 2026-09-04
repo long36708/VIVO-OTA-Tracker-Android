@@ -15,7 +15,7 @@
 ## 2. 现状盘点（已探明，可直接复用）
 
 ### 2.1 历史记录（VivoOtaViewModel）
-- 数据类：`app/android/src/main/kotlin/com/mytiantian/updater/vivo/VivoModels.kt` 的 `QueryHistoryEntry`
+- 数据类：`app/android/src/main/kotlin/io/github/long36708/updater/vivo/VivoModels.kt` 的 `QueryHistoryEntry`
   ```kotlin
   data class QueryHistoryEntry(
       val timestamp: Long,
@@ -38,7 +38,7 @@
   2. `PayloadUtil.getPayloadOffset(target)` 定位 payload.bin
   3. `PayloadUtil.initPayload(fileName, httpUtil, offset)` → 得到 `Payload`，含 `deltaArchiveManifest.partitionsList`
   4. `PayloadUtil.getPartitionInfoList(payload)` → `List<PartitionInfo>`
-- 分区数据类：`app/android/src/main/kotlin/com/mytiantian/updater/vivo/payload/VivoPayloadModels.kt` 的 `PartitionInfo`（`partitionName`, `size`, `rawSize`, `sha256`, `operationsCount`, ...）。
+- 分区数据类：`app/android/src/main/kotlin/io/github/long36708/updater/vivo/payload/VivoPayloadModels.kt` 的 `PartitionInfo`（`partitionName`, `size`, `rawSize`, `sha256`, `operationsCount`, ...）。
 - 展示 UI：`VivoPayloadDumperScreen.kt` 的 `PartitionItem` / 分区列表 LazyColumn（line ~329），以及 `PartitionDetailDialog`。
 - 触发位置：`VivoApp.kt` line 205 `payloadViewModel.parseFromUrl(dumpUrl); showPayloadDumper = true` —— 说明已有"从 OTA 结果 URL 直接带入并打开 payload 页"的模式，可照搬。
 
@@ -102,13 +102,13 @@ showPayloadDumper = true   // 与 line 205 完全一致
 
 | 文件 | 作用 |
 |------|------|
-| `app/android/src/main/kotlin/com/mytiantian/updater/vivo/VivoModels.kt` | `QueryHistoryEntry` 数据类（方案 A 需改） |
-| `app/android/src/main/kotlin/com/mytiantian/updater/vivo/VivoOtaViewModel.kt` | 历史增删/存储；`addToHistory` (line 276)、`loadHistory`/`saveHistory` (line 302/329)、`deleteHistoryEntry` (line 163) |
-| `app/android/src/main/kotlin/com/mytiantian/updater/vivo/VivoApp.kt` | `HistoryCard`(line 674)、`SwipeToDeleteHistoryEntry`(line 818)、payload 页触发 (line 205) |
-| `app/android/src/main/kotlin/com/mytiantian/updater/vivo/payload/VivoPayloadViewModel.kt` | `parseFromUrl`(line 85)/`parsePayload`(line 139)、`currentPayload`、`zipMutex` |
-| `app/android/src/main/kotlin/com/mytiantian/updater/vivo/payload/VivoPayloadUtil.kt` | `initPayload`(line 59)、`getPartitionInfoList`(line 96)、`getPayloadOffset` |
-| `app/android/src/main/kotlin/com/mytiantian/updater/vivo/payload/VivoPayloadModels.kt` | `PartitionInfo`、`Payload` 数据类 |
-| `app/android/src/main/kotlin/com/mytiantian/updater/vivo/payload/VivoPayloadDumperScreen.kt` | 分区列表 UI（`PartitionItem` line 396、`PartitionDetailDialog`），可复用样式参考 |
+| `app/android/src/main/kotlin/io/github/long36708/updater/vivo/VivoModels.kt` | `QueryHistoryEntry` 数据类（方案 A 需改） |
+| `app/android/src/main/kotlin/io/github/long36708/updater/vivo/VivoOtaViewModel.kt` | 历史增删/存储；`addToHistory` (line 276)、`loadHistory`/`saveHistory` (line 302/329)、`deleteHistoryEntry` (line 163) |
+| `app/android/src/main/kotlin/io/github/long36708/updater/vivo/VivoApp.kt` | `HistoryCard`(line 674)、`SwipeToDeleteHistoryEntry`(line 818)、payload 页触发 (line 205) |
+| `app/android/src/main/kotlin/io/github/long36708/updater/vivo/payload/VivoPayloadViewModel.kt` | `parseFromUrl`(line 85)/`parsePayload`(line 139)、`currentPayload`、`zipMutex` |
+| `app/android/src/main/kotlin/io/github/long36708/updater/vivo/payload/VivoPayloadUtil.kt` | `initPayload`(line 59)、`getPartitionInfoList`(line 96)、`getPayloadOffset` |
+| `app/android/src/main/kotlin/io/github/long36708/updater/vivo/payload/VivoPayloadModels.kt` | `PartitionInfo`、`Payload` 数据类 |
+| `app/android/src/main/kotlin/io/github/long36708/updater/vivo/payload/VivoPayloadDumperScreen.kt` | 分区列表 UI（`PartitionItem` line 396、`PartitionDetailDialog`），可复用样式参考 |
 
 ---
 

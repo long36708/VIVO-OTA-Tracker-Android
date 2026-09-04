@@ -1,11 +1,11 @@
-package com.mytiantian.updater
+package io.github.long36708.updater
 
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.mytiantian.updater.vivo.VivoApp
+import io.github.long36708.updater.vivo.VivoApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

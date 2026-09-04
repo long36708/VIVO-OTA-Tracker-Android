@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">VIVO OTA Tracker</string>
+    <string name="app_name">VIVO OTA Tracker Plus</string>
 
     <!-- Crypto status -->
     <string name="crypto_ready">● एन्क्रिप्शन इंजन तैयार</string>

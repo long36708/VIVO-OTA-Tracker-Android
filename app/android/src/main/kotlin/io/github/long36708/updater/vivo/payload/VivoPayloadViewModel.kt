@@ -1,4 +1,4 @@
-package com.mytiantian.updater.vivo.payload
+package io.github.long36708.updater.vivo.payload
 
 import android.content.ContentValues
 import android.content.Context
@@ -9,7 +9,7 @@ import android.provider.MediaStore
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mytiantian.updater.R
+import io.github.long36708.updater.R
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

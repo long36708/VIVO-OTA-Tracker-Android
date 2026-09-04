@@ -1,4 +1,4 @@
-package com.mytiantian.updater.vivo.payload
+package io.github.long36708.updater.vivo.payload
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -44,7 +44,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import com.mytiantian.updater.R
+import io.github.long36708.updater.R
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
