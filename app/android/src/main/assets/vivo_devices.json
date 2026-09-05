@@ -334,7 +334,6 @@
         "15.0.25.12.W10",
         "15.0.33.7.W10",
         "16.1.7.54.W10",
-        "16.1.7.54.W10",
         "16.1.9.24.W10",
         "16.1.12.12.W10",
         "16.1.12.28.W10"
@@ -1318,7 +1317,8 @@
     {
       "model": "vivo Y600 Turbo",
       "codename": "PD2553",
-      "model_sw_ver": "V2553A"
+      "model_sw_ver": "V2553A",
+      "default_sw_version": "16.0.10.2.W10"
     }
   ],
   "T 系列": [
@@ -1763,7 +1763,8 @@
       "model": "iQOO Neo11",
       "codename": "PD2520",
       "model_sw_ver": "V2520A",
-      "default_sw_version": "16.0.14.13.W10"
+      "default_sw_version": "16.0.26.6.W10",
+      "optional_sw_versions": ["16.0.14.13.W10"]
     }
   ],
   "iQOO Z 系列": [
