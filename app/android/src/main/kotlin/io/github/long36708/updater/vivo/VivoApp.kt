@@ -532,6 +532,13 @@ private fun VersionInputCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel)
     // 三者全满足才显示：非手动模式、机型已配置、且推荐值与当前值不同
     val showRecommended = recommended.isNotBlank() &&
         recommended.trim() != state.softwareVersion.trim()
+    // 可选版本号数组下拉：仅当机型配置了 optional_sw_versions 才出现
+    val optional = if (state.manualMode) emptyList() else {
+        VivoDeviceDatabase.devicesOf(state.selectedSeries)
+            .getOrNull(state.selectedModelIndex)?.optionalSwVersions ?: emptyList()
+    }
+    // 当前版本号若在数组中则高亮对应项，否则默认 0（仅用于下拉初始定位）
+    val optionalIndex = optional.indexOf(state.softwareVersion).takeIf { it >= 0 } ?: 0
     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         Column {
             TextField(
@@ -543,6 +550,15 @@ private fun VersionInputCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel)
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
             )
+            if (optional.isNotEmpty()) {
+                OverlayDropdownPreference(
+                    title = stringResource(R.string.sw_version_optional),
+                    items = optional,
+                    selectedIndex = optionalIndex,
+                    onSelectedIndexChange = { viewModel.applyOptionalSwVersion(optional[it]) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -634,6 +650,26 @@ private fun ChannelCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
         )
     }
 }
+
+// 出口版域名已失效，暂时隐藏该选项。恢复时取消注释并在主 LazyColumn 中重新调用。
+// @Composable
+// private fun DomainCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
+//     val domains = listOf(
+//         stringResource(R.string.domain_cn),
+//         stringResource(R.string.domain_global)
+//     )
+//     val domainValues = listOf("CN", "GLOBAL")
+//     val selectedIndex = domainValues.indexOf(state.queryDomain).takeIf { it >= 0 } ?: 0
+//     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+//         OverlayDropdownPreference(
+//             title = stringResource(R.string.label_query_domain),
+//             items = domains,
+//             selectedIndex = selectedIndex,
+//             onSelectedIndexChange = { viewModel.updateQueryDomain(domainValues[it]) },
+//             modifier = Modifier.fillMaxWidth()
+//         )
+//     }
+// }
 
 // 出口版域名已失效，暂时隐藏该选项。恢复时取消注释并在主 LazyColumn 中重新调用。
 // @Composable

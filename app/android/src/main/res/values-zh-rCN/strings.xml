@@ -22,6 +22,7 @@
     <!-- Version input -->
     <string name="label_sw_version">系统版本号 (例如: 16.1.16.5.W10)</string>
     <string name="hint_sw_version">加密库不支持早期旧设备的 x.x.x 版本号获取</string>
+    <string name="sw_version_optional">可选版本</string>
     <string name="sw_version_use_recommended">用推荐版本</string>
     <string name="custom_version">自定义</string>
     <string name="label_sn">SN 序列号 (可选)</string>

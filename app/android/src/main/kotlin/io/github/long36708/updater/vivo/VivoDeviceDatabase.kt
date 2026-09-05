@@ -10,7 +10,9 @@ data class VivoDevice(
     // ADR-003 D1：机型默认软件版本号。空串 = 该机型未配置，不做任何填充。
     // 注意与 model_sw_ver 区分：后者是硬件公开型号（V2419A），
     // 本字段是系统软件版本号（15.0.33.7.W10）。
-    val defaultSwVersion: String = ""
+    val defaultSwVersion: String = "",
+    // 可选版本号数组：个别机型有多个官方版本可选。空列表 = 不显示下拉。
+    val optionalSwVersions: List<String> = emptyList()
 )
 
 object VivoDeviceDatabase {
@@ -36,7 +38,11 @@ object VivoDeviceDatabase {
                     // ADR-003 D1：可选字段，缺失即空串。
                     // 必须用 optString——getString 对缺字段会抛 JSONException，
                     // 而 load() 无 try-catch，会导致整个机型库加载失败。
-                    defaultSwVersion = obj.optString("default_sw_version", "")
+                    defaultSwVersion = obj.optString("default_sw_version", ""),
+                    // 可选版本号数组，缺失即空列表。optJSONArray 缺字段返回 null，不会抛异常。
+                    optionalSwVersions = obj.optJSONArray("optional_sw_versions")?.let { a ->
+                        List(a.length()) { i -> a.getString(i) }
+                    } ?: emptyList()
                 ))
             }
             result[series] = devices

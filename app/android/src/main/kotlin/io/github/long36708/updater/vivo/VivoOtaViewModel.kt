@@ -162,6 +162,14 @@ class VivoOtaViewModel : ViewModel() {
         fillSwVersion(device.defaultSwVersion)
     }
 
+    /**
+     * 从「可选版本号数组」下拉选择某个版本号（ADR-扩展）。
+     * 视为用户从机型官方版本中挑选，清脏，恢复自动跟随（与 applyRecommendedSwVersion 一致）。
+     */
+    fun applyOptionalSwVersion(v: String) {
+        fillSwVersion(v)
+    }
+
     fun updateAndroidVersion(v: Int) {
         _uiState.update { it.copy(androidVersion = v, isCustomAndroidVersion = false) }
     }
