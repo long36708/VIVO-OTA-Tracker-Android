@@ -6,7 +6,11 @@ import org.json.JSONObject
 data class VivoDevice(
     val model: String,
     val codename: String,
-    val model_sw_ver: String
+    val model_sw_ver: String,
+    // ADR-003 D1：机型默认软件版本号。空串 = 该机型未配置，不做任何填充。
+    // 注意与 model_sw_ver 区分：后者是硬件公开型号（V2419A），
+    // 本字段是系统软件版本号（15.0.33.7.W10）。
+    val defaultSwVersion: String = ""
 )
 
 object VivoDeviceDatabase {
@@ -28,7 +32,11 @@ object VivoDeviceDatabase {
                 devices.add(VivoDevice(
                     model = obj.getString("model"),
                     codename = obj.getString("codename"),
-                    model_sw_ver = obj.getString("model_sw_ver")
+                    model_sw_ver = obj.getString("model_sw_ver"),
+                    // ADR-003 D1：可选字段，缺失即空串。
+                    // 必须用 optString——getString 对缺字段会抛 JSONException，
+                    // 而 load() 无 try-catch，会导致整个机型库加载失败。
+                    defaultSwVersion = obj.optString("default_sw_version", "")
                 ))
             }
             result[series] = devices

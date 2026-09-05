@@ -523,6 +523,15 @@ private fun CodenameInfoCard(state: VivoOtaUiState) {
 
 @Composable
 private fun VersionInputCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
+    // ADR-003 D5：手动模式下机型下拉是隐藏的，不存在「选中机型」语境，不提供推荐版本。
+    // 此处直接查 database 与 ModelDropdownCard 的既有写法保持一致。
+    val recommended = if (state.manualMode) "" else {
+        VivoDeviceDatabase.devicesOf(state.selectedSeries)
+            .getOrNull(state.selectedModelIndex)?.defaultSwVersion.orEmpty()
+    }
+    // 三者全满足才显示：非手动模式、机型已配置、且推荐值与当前值不同
+    val showRecommended = recommended.isNotBlank() &&
+        recommended.trim() != state.softwareVersion.trim()
     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         Column {
             TextField(
@@ -543,8 +552,20 @@ private fun VersionInputCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel)
                     text = stringResource(R.string.hint_sw_version),
                     fontSize = 11.sp,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    modifier = Modifier.padding(start = 4.dp)
+                    modifier = Modifier
+                        .padding(start = 4.dp)
+                        .weight(1f)
                 )
+                if (showRecommended) {
+                    Text(
+                        text = stringResource(R.string.sw_version_use_recommended),
+                        fontSize = 12.sp,
+                        color = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clickable { viewModel.applyRecommendedSwVersion() }
+                            .padding(start = 8.dp)
+                    )
+                }
             }
         }
     }

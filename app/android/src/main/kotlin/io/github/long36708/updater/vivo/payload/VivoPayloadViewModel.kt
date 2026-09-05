@@ -63,6 +63,11 @@ class VivoPayloadViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(inputUrl = url)
     }
 
+    /** 一键清空输入框中的链接。 */
+    fun clearInputUrl() {
+        _uiState.value = _uiState.value.copy(inputUrl = "")
+    }
+
     /** 在输入框中手动提交链接并解析。 */
     fun submitUrl() {
         val target = _uiState.value.inputUrl.trim()
@@ -214,7 +219,7 @@ class VivoPayloadViewModel : ViewModel() {
             "NOT_A_PAYLOAD_ZIP" ->
                 "这不是 A/B 增量包（payload.bin 不存在）。该 OTA 包可能是 recovery 全量包，无法用此工具解析。"
             "NOT_A_VALID_ZIP" ->
-                "链接指向的文件不是有效的 OTA zip，请检查链接或文件是否完整。"
+                "链接指向的文件不是有效的 OTA zip。可能原因：链接不正确、文件不完整、服务器返回了错误页面（如 HTML 而非 zip），或文件需要登录才能访问。请检查链接是否指向直链下载地址。"
             else -> raw ?: "解析失败，请重试"
         }
     }

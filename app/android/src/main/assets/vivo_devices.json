@@ -295,12 +295,14 @@
     {
       "model": "vivo X200 Pro",
       "codename": "PD2405",
-      "model_sw_ver": "V2405A"
+      "model_sw_ver": "V2405A",
+      "default_sw_version": "15.0.20.15.W10"
     },
     {
       "model": "vivo X200 Pro 卫星通信版",
       "codename": "PD2405",
-      "model_sw_ver": "V2405DA"
+      "model_sw_ver": "V2405DA",
+      "default_sw_version": "15.0.20.15.W10"
     },
     {
       "model": "vivo X200 Pro mini",
@@ -330,7 +332,8 @@
     {
       "model": "vivo X300",
       "codename": "PD2509",
-      "model_sw_ver": "V2509A"
+      "model_sw_ver": "V2509A",
+      "default_sw_version": "16.0.14.11.W10"
     },
     {
       "model": "vivo X300 Pro",
@@ -345,17 +348,41 @@
     {
       "model": "vivo X300s",
       "codename": "PD2548",
-      "model_sw_ver": "V2548A"
+      "model_sw_ver": "V2548A",
+      "default_sw_version": "15.0.31.15.W10"
     },
     {
       "model": "vivo X300 Ultra",
       "codename": "PD2547",
-      "model_sw_ver": "V2547A"
+      "model_sw_ver": "V2547A",
+      "default_sw_version": "16.0.16.7.W10"
     },
     {
       "model": "vivo X300 Ultra 卫星通信版",
       "codename": "PD2547",
-      "model_sw_ver": "V2547DA"
+      "model_sw_ver": "V2547DA",
+      "default_sw_version": "16.0.16.7.W10"
+    },
+    {
+      "model": "vivo X500 Pro Max",
+      "codename": "PD2602",
+      "model_sw_ver": "V2602A"
+    },
+    {
+      "model": "vivo X500 Pro Max卫星通信版",
+      "codename": "PD2602",
+      "model_sw_ver": "V2602DA"
+    },
+    {
+      "model": "vivo X500 Pro",
+      "codename": "PD2608",
+      "model_sw_ver": "V2608A"
+    },
+    {
+      "model": "vivo X500",
+      "codename": "PD2609",
+      "model_sw_ver": "V2609A",
+      "default_sw_version": "17.0.12.11.W10"
     }
   ],
   "S 系列": [
@@ -1811,6 +1838,11 @@
       "model": "iQOO U5e 5G",
       "codename": "PD2197",
       "model_sw_ver": "V2197A"
+    },
+    {
+      "model": "iQOO 16",
+      "codename": "PD2606",
+      "model_sw_ver": "V2606A"
     }
   ],
   "平板电脑": [

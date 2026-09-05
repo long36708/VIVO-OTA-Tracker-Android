@@ -105,6 +105,7 @@
     <string name="payload_yes">是</string>
     <string name="payload_select_all">全選</string>
     <string name="payload_selected_count">已選: %1$d</string>
+    <string name="payload_clear">清空</string>
     <string name="payload_extract_selected">提取選中</string>
     <string name="payload_extract_success">%1$s 提取完成</string>
     <string name="payload_extract_failed">%1$s 提取失敗</string>

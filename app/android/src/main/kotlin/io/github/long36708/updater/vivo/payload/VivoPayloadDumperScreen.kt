@@ -207,18 +207,33 @@ fun PayloadDumperScreen(
                             insideMargin = DpSize(16.dp, 24.dp),
                             value = uiState.inputUrl,
                             onValueChange = { viewModel.updateInputUrl(it) },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 80.dp, max = 160.dp),
                             label = stringResource(R.string.payload_input_hint),
-                            singleLine = true,
+                            singleLine = false,
+                            maxLines = 5,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
                         )
-                        Button(
-                            onClick = { viewModel.submitUrl() },
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColorsPrimary(),
-                            enabled = !uiState.isParsing
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text(stringResource(R.string.payload_parse))
+                            Button(
+                                onClick = { viewModel.clearInputUrl() },
+                                modifier = Modifier.weight(1f),
+                                enabled = uiState.inputUrl.isNotBlank() && !uiState.isParsing
+                            ) {
+                                Text(stringResource(R.string.payload_clear))
+                            }
+                            Button(
+                                onClick = { viewModel.submitUrl() },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColorsPrimary(),
+                                enabled = !uiState.isParsing
+                            ) {
+                                Text(stringResource(R.string.payload_parse))
+                            }
                         }
                     }
                 }

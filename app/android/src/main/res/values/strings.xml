@@ -22,6 +22,7 @@
     <!-- Version input -->
     <string name="label_sw_version">System version (e.g. 16.1.16.5.W10)</string>
     <string name="hint_sw_version">The encryption library does not support version retrieval for older devices with x.x.x format</string>
+    <string name="sw_version_use_recommended">Use recommended</string>
     <string name="custom_version">Custom</string>
     <string name="label_sn">SN serial number (optional)</string>
     <string name="label_package_type">Package type</string>
@@ -109,6 +110,7 @@
     <string name="extract">Extract</string>
     <string name="payload_input_hint">Paste OTA payload / zip URL</string>
     <string name="payload_parse">Parse</string>
+    <string name="payload_clear">Clear</string>
     <string name="partition_size_ops">Size: %1$s · Ops: %2$d · Merge: %3$d</string>
     <string name="partition_raw_size">Raw size</string>
     <string name="partition_ops">Operations</string>

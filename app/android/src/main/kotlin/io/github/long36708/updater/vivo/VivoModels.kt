@@ -45,6 +45,9 @@ data class VivoOtaUiState(
     val selectedModelSwVer: String = "",
     val deviceType: String = "phone",
     val softwareVersion: String = "15.0.33.7.W10",
+    // ADR-003 D2：false = 版本号仍处于「自动跟随机型」状态，切机型时可被覆盖；
+    //            true  = 用户手动编辑过，此后切机型一律不覆盖。
+    val isSwVersionCustom: Boolean = false,
     val androidVersion: Int = 15,
     val isCustomAndroidVersion: Boolean = false,
     val customAndroidVersion: String = "",

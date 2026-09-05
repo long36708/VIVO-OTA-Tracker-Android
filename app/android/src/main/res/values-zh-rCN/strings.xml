@@ -22,6 +22,7 @@
     <!-- Version input -->
     <string name="label_sw_version">系统版本号 (例如: 16.1.16.5.W10)</string>
     <string name="hint_sw_version">加密库不支持早期旧设备的 x.x.x 版本号获取</string>
+    <string name="sw_version_use_recommended">用推荐版本</string>
     <string name="custom_version">自定义</string>
     <string name="label_sn">SN 序列号 (可选)</string>
     <string name="label_package_type">包类型</string>
@@ -97,6 +98,7 @@
     <string name="extract">提取</string>
     <string name="payload_input_hint">粘贴 OTA payload / zip 链接</string>
     <string name="payload_parse">解析</string>
+    <string name="payload_clear">清空</string>
     <string name="partition_size_ops">大小：%1$s · 操作数：%2$d · 合并：%3$d</string>
     <string name="partition_raw_size">原始大小</string>
     <string name="partition_ops">操作</string>

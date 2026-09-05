@@ -57,6 +57,10 @@ class VivoOtaViewModel : ViewModel() {
                 isCustomAndroidVersion = false
             )
         }
+        // ADR-003 D4：启动时尚未手动编辑过，若默认机型配置了推荐版本号则带入
+        if (device.defaultSwVersion.isNotBlank()) {
+            fillSwVersion(device.defaultSwVersion)
+        }
     }
 
     private fun initCrypto() {
@@ -85,6 +89,11 @@ class VivoOtaViewModel : ViewModel() {
                 deviceType = detectedType
             )
         }
+        // ADR-003 D4：未手动编辑过版本号时，跟随新系列首个机型的推荐值
+        val recommended = first?.defaultSwVersion.orEmpty()
+        if (!_uiState.value.isSwVersionCustom && recommended.isNotBlank()) {
+            fillSwVersion(recommended)
+        }
     }
 
     fun selectDevice(index: Int) {
@@ -98,9 +107,20 @@ class VivoOtaViewModel : ViewModel() {
                 selectedModelSwVer = device.model_sw_ver
             )
         }
+        // ADR-003 D4：未手动编辑过版本号时才跟随机型推荐值
+        if (!_uiState.value.isSwVersionCustom && device.defaultSwVersion.isNotBlank()) {
+            fillSwVersion(device.defaultSwVersion)
+        }
     }
 
-    fun updateSoftwareVersion(v: String) {
+    /**
+     * 只做「解析 + 写入」，不碰脏标记（ADR-003 D3）。
+     *
+     * 自动填充与用户手输都必须走这里：softwareVersion 点号前的数字决定 androidVersion，
+     * 绕过本函数直接 copy(softwareVersion =) 会让 Android 16 机型填完后 androidVersion
+     * 仍停在 15，查询直接查错。
+     */
+    private fun applySwVersion(v: String) {
         val majorVersion = if (v.contains('.')) {
             v.substringBefore('.').toIntOrNull()
         } else {
@@ -115,6 +135,31 @@ class VivoOtaViewModel : ViewModel() {
         } else {
             _uiState.update { it.copy(softwareVersion = v) }
         }
+    }
+
+    /** 用户手动输入 → 置脏，之后切机型不再覆盖（ADR-003 D4）。 */
+    fun updateSoftwareVersion(v: String) {
+        applySwVersion(v)
+        _uiState.update { it.copy(isSwVersionCustom = true) }
+    }
+
+    /** 自动填充 / 刷回 → 清脏，恢复「自动跟随机型」状态（ADR-003 D4）。 */
+    private fun fillSwVersion(v: String) {
+        applySwVersion(v)
+        _uiState.update { it.copy(isSwVersionCustom = false) }
+    }
+
+    /**
+     * 「用推荐版本」按钮：用当前选中机型的推荐版本号刷新输入框，并恢复自动跟随。
+     * 手动模式或该机型未配置时静默不作为（ADR-003 D5）。
+     */
+    fun applyRecommendedSwVersion() {
+        val state = _uiState.value
+        if (state.manualMode) return
+        val device = VivoDeviceDatabase.devicesOf(state.selectedSeries)
+            .getOrNull(state.selectedModelIndex) ?: return
+        if (device.defaultSwVersion.isBlank()) return
+        fillSwVersion(device.defaultSwVersion)
     }
 
     fun updateAndroidVersion(v: Int) {
@@ -393,7 +438,9 @@ class VivoOtaViewModel : ViewModel() {
                 deviceType = entry.deviceType,
                 isFullPackage = entry.isFullPackage,
                 queryChannel = entry.queryChannel,
-                queryDomain = entry.queryDomain
+                queryDomain = entry.queryDomain,
+                // ADR-003 D6：历史回填的版本号视为用户明确选择，后续切机型不覆盖
+                isSwVersionCustom = true
             )
         }
     }

@@ -3,7 +3,7 @@ object ProjectConfig {
     const val APP_NAME = "vivo OTA Tracker Plus"
     const val NAMESPACE = "io.github.long36708.updater"
     const val PACKAGE_NAME = "io.github.long36708.vivoupdater"
-    const val VERSION_NAME = "1.4.1"
+    const val VERSION_NAME = "1.5.0"
 
     object Android {
         const val TARGET_SDK = 37
