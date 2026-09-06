@@ -333,7 +333,7 @@ private fun ChangelogScreen(
                 )
             }
             if (entry.changelogUrl.isNotEmpty() && entry.changelogUrl != "(Not found)") {
-                ChangelogLinkActions(url = entry.changelogUrl, copiedMsg = copiedMsg)
+                ChangelogLinkActions(url = entry.changelogUrl, copiedMsg = copiedMsg, center = true)
             }
             if (loading) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -371,11 +371,15 @@ private fun ChangelogScreen(
  * 避免用户拿到的是浏览器里只显示源码的 JS 文件。
  */
 @Composable
-private fun ChangelogLinkActions(url: String, copiedMsg: String) {
+private fun ChangelogLinkActions(url: String, copiedMsg: String, center: Boolean = false) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val pageUrl = VivoOtaClient.changelogPageUrl(url)
-    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+    Row(
+        modifier = if (center) Modifier.fillMaxWidth() else Modifier,
+        horizontalArrangement = if (center) Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally) else Arrangement.spacedBy(20.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(
             text = stringResource(R.string.btn_copy_link),
             color = MiuixTheme.colorScheme.primary,
@@ -1326,6 +1330,22 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(6.dp))
 
+                    Text(
+                        text = "JerryTse-OSS / VIVO-OTA-Tracker",
+                        color = MiuixTheme.colorScheme.primary,
+                        fontSize = 12.sp,
+                        modifier = Modifier.combinedClickable(
+                            onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/JerryTse-OSS/VIVO-OTA-Tracker"))) },
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                cb.setPrimaryClip(ClipData.newPlainText("url", "https://github.com/JerryTse-OSS/VIVO-OTA-Tracker"))
+                                Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
                     Text(stringResource(R.string.about_source), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Text(
                         text = "VIVO-OTA-Tracker-Android",
@@ -1345,7 +1365,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     HorizontalDivider()
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        "© 2026 mytiantian001",
+                        "© 2026 mytiantian001 · longmo",
                         fontSize = 11.sp,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                     )
