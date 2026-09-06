@@ -367,11 +367,14 @@ private fun ChangelogScreen(
 
 /**
  * 更新日志 H5 地址操作行：复制链接 / 跳转系统浏览器打开。
+ * 入参是日志数据文件地址（/data/CN.js），复制与打开前先还原成 H5 页面地址，
+ * 避免用户拿到的是浏览器里只显示源码的 JS 文件。
  */
 @Composable
 private fun ChangelogLinkActions(url: String, copiedMsg: String) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    val pageUrl = VivoOtaClient.changelogPageUrl(url)
     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         Text(
             text = stringResource(R.string.btn_copy_link),
@@ -380,7 +383,7 @@ private fun ChangelogLinkActions(url: String, copiedMsg: String) {
             modifier = Modifier.clickable {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                cb.setPrimaryClip(ClipData.newPlainText("changelogUrl", url))
+                cb.setPrimaryClip(ClipData.newPlainText("changelogUrl", pageUrl))
                 Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
             }
         )
@@ -389,7 +392,7 @@ private fun ChangelogLinkActions(url: String, copiedMsg: String) {
             color = MiuixTheme.colorScheme.primary,
             fontSize = 13.sp,
             modifier = Modifier.clickable {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(pageUrl)))
             }
         )
     }

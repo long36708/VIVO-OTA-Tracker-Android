@@ -24,6 +24,17 @@ class VivoOtaClient(private val context: Context) {
     companion object {
         private const val TAG = "VivoOtaClient"
         private const val TOKEN_NATIVE = "jnisgmain_v2@com.bbk.updater"
+
+        /**
+         * h5Url 页面地址 → 日志数据文件地址：H5 页面内容由 JS 从 data/CN.js 加载，
+         * 解析日志正文时直接抓该文件而非渲染后的 HTML。
+         */
+        fun changelogDataUrl(h5Url: String): String =
+            h5Url.replace(Regex("/index\\.html$"), "/data/CN.js")
+
+        /** changelogDataUrl 的逆变换：还原出可在浏览器直接打开的 H5 页面地址。 */
+        fun changelogPageUrl(url: String): String =
+            url.replace(Regex("/data/[^/]+\\.js$"), "/index.html")
     }
 
     /** 可选择的升级服务器域名（参照升级检查接口协议分析.md）。 */
@@ -225,7 +236,7 @@ class VivoOtaClient(private val context: Context) {
         var downloadUrl = ""
 
         val changelogUrl = extractJsonStr(updateResponse, "h5Url\":\"").let {
-            if (it == "(Not found)") "" else it.replace("\\/", "/").replace(Regex("/index\\.html$"), "/data/CN.js")
+            if (it == "(Not found)") "" else it.replace("\\/", "/").let(::changelogDataUrl)
         }
         Log.d(TAG, "Changelog URL: '$changelogUrl'")
 
