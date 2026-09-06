@@ -94,6 +94,7 @@ class VivoOtaViewModel : ViewModel() {
         if (!_uiState.value.isSwVersionCustom && recommended.isNotBlank()) {
             fillSwVersion(recommended)
         }
+        clearStaleQueryResult()
     }
 
     fun selectDevice(index: Int) {
@@ -111,6 +112,7 @@ class VivoOtaViewModel : ViewModel() {
         if (!_uiState.value.isSwVersionCustom && device.defaultSwVersion.isNotBlank()) {
             fillSwVersion(device.defaultSwVersion)
         }
+        clearStaleQueryResult()
     }
 
     /**
@@ -141,6 +143,7 @@ class VivoOtaViewModel : ViewModel() {
     fun updateSoftwareVersion(v: String) {
         applySwVersion(v)
         _uiState.update { it.copy(isSwVersionCustom = true) }
+        clearStaleQueryResult()
     }
 
     /** 自动填充 / 刷回 → 清脏，恢复「自动跟随机型」状态（ADR-003 D4）。 */
@@ -160,6 +163,7 @@ class VivoOtaViewModel : ViewModel() {
             .getOrNull(state.selectedModelIndex) ?: return
         if (device.defaultSwVersion.isBlank()) return
         fillSwVersion(device.defaultSwVersion)
+        clearStaleQueryResult()
     }
 
     /**
@@ -168,23 +172,30 @@ class VivoOtaViewModel : ViewModel() {
      */
     fun applyOptionalSwVersion(v: String) {
         fillSwVersion(v)
+        clearStaleQueryResult()
     }
 
     fun updateAndroidVersion(v: Int) {
         _uiState.update { it.copy(androidVersion = v, isCustomAndroidVersion = false) }
+        clearStaleQueryResult()
     }
 
     fun selectCustomAndroidVersion() {
         _uiState.update { it.copy(isCustomAndroidVersion = true) }
+        clearStaleQueryResult()
     }
 
     fun updateCustomAndroidVersion(v: String) {
         val num = v.filter { it.isDigit() }
         val ver = num.toIntOrNull() ?: 0
         _uiState.update { it.copy(customAndroidVersion = num, androidVersion = if (ver > 0) ver else it.androidVersion, isCustomAndroidVersion = true) }
+        clearStaleQueryResult()
     }
 
-    fun updateSn(v: String) { _uiState.update { it.copy(sn = v) } }
+    fun updateSn(v: String) {
+        _uiState.update { it.copy(sn = v) }
+        clearStaleQueryResult()
+    }
     fun updateQueryChannel(channel: String) {
         _uiState.update {
             // 尝鲜 / 公测 / 内测通道仅支持增量包，强制锁定为增量
@@ -194,24 +205,42 @@ class VivoOtaViewModel : ViewModel() {
                 it.copy(queryChannel = channel)
             }
         }
+        clearStaleQueryResult()
     }
 
     fun updateQueryDomain(domain: String) {
         if (domain !in listOf("CN", "GLOBAL")) return
         _uiState.update { it.copy(queryDomain = domain) }
+        clearStaleQueryResult()
     }
 
-    fun updateDeviceType(type: String) { _uiState.update { it.copy(deviceType = type) } }
+    fun updateDeviceType(type: String) {
+        _uiState.update { it.copy(deviceType = type) }
+        clearStaleQueryResult()
+    }
     fun togglePackageType() {
         _uiState.update {
             // 尝鲜 / 公测 / 内测通道下禁止切换包类型，始终保持增量
             if (it.queryChannel != "NORMAL") it else it.copy(isFullPackage = !it.isFullPackage)
         }
+        clearStaleQueryResult()
     }
-    fun toggleManualMode() { _uiState.update { it.copy(manualMode = !it.manualMode) } }
-    fun updateManualCodename(v: String) { _uiState.update { it.copy(manualCodename = v) } }
-    fun updateManualModelSwVer(v: String) { _uiState.update { it.copy(manualModelSwVer = v) } }
-    fun updateManualModelName(v: String) { _uiState.update { it.copy(manualModelName = v) } }
+    fun toggleManualMode() {
+        _uiState.update { it.copy(manualMode = !it.manualMode) }
+        clearStaleQueryResult()
+    }
+    fun updateManualCodename(v: String) {
+        _uiState.update { it.copy(manualCodename = v) }
+        clearStaleQueryResult()
+    }
+    fun updateManualModelSwVer(v: String) {
+        _uiState.update { it.copy(manualModelSwVer = v) }
+        clearStaleQueryResult()
+    }
+    fun updateManualModelName(v: String) {
+        _uiState.update { it.copy(manualModelName = v) }
+        clearStaleQueryResult()
+    }
     fun clearToast() { _uiState.update { it.copy(toastMessage = null) } }
 
     fun deleteHistoryEntry(timestamp: Long) {
@@ -267,6 +296,11 @@ class VivoOtaViewModel : ViewModel() {
 
     private fun detectDeviceType(series: String): String {
         return if (series.contains("平板") || series.contains("穿戴")) "tablet" else "phone"
+    }
+
+    /** 检索条件变化后，旧结果/旧错误不再可信，立即清除避免误导。 */
+    private fun clearStaleQueryResult() {
+        _uiState.update { it.copy(result = null, error = null) }
     }
 
     fun query() {
@@ -451,6 +485,7 @@ class VivoOtaViewModel : ViewModel() {
                 isSwVersionCustom = true
             )
         }
+        clearStaleQueryResult()
     }
 
     private fun loadHistory() {
