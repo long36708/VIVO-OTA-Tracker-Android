@@ -58,6 +58,7 @@
     <string name="update_date">Update date: %1$s</string>
     <string name="btn_download">Download</string>
     <string name="btn_copy_link">Copy link</string>
+    <string name="btn_open_in_browser">Open in browser</string>
     <string name="btn_fill">Fill</string>
     <string name="btn_changelog">Changelog</string>
     <string name="back">Back</string>

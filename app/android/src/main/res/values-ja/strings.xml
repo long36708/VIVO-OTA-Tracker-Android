@@ -44,6 +44,7 @@
     <string name="update_date">更新日: %1$s</string>
     <string name="btn_download">ダウンロード</string>
     <string name="btn_copy_link">リンクをコピー</string>
+    <string name="btn_open_in_browser">ブラウザで開く</string>
     <string name="btn_fill">入力</string>
     <string name="btn_changelog">更新履歴</string>
     <string name="back">戻る</string>

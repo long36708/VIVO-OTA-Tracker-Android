@@ -44,6 +44,7 @@
     <string name="update_date">Дата обновления: %1$s</string>
     <string name="btn_download">Скачать</string>
     <string name="btn_copy_link">Копировать ссылку</string>
+    <string name="btn_open_in_browser">Открыть в браузере</string>
     <string name="btn_fill">Заполнить</string>
     <string name="btn_changelog">Журнал изменений</string>
     <string name="back">Назад</string>

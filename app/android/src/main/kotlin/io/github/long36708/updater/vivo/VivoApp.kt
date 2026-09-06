@@ -332,6 +332,9 @@ private fun ChangelogScreen(
                     textAlign = TextAlign.Center
                 )
             }
+            if (entry.changelogUrl.isNotEmpty() && entry.changelogUrl != "(Not found)") {
+                ChangelogLinkActions(url = entry.changelogUrl, copiedMsg = copiedMsg)
+            }
             if (loading) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp))
@@ -359,6 +362,36 @@ private fun ChangelogScreen(
                 )
             }
         }
+    }
+}
+
+/**
+ * 更新日志 H5 地址操作行：复制链接 / 跳转系统浏览器打开。
+ */
+@Composable
+private fun ChangelogLinkActions(url: String, copiedMsg: String) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        Text(
+            text = stringResource(R.string.btn_copy_link),
+            color = MiuixTheme.colorScheme.primary,
+            fontSize = 13.sp,
+            modifier = Modifier.clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cb.setPrimaryClip(ClipData.newPlainText("changelogUrl", url))
+                Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+            }
+        )
+        Text(
+            text = stringResource(R.string.btn_open_in_browser),
+            color = MiuixTheme.colorScheme.primary,
+            fontSize = 13.sp,
+            modifier = Modifier.clickable {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            }
+        )
     }
 }
 
@@ -824,6 +857,9 @@ private fun ResultCard(
             if (changelogContent != null) {
                 HorizontalDivider()
                 Text(stringResource(R.string.changelog_title), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                if (result.changelogUrl.isNotEmpty() && result.changelogUrl != "(Not found)") {
+                    ChangelogLinkActions(url = result.changelogUrl, copiedMsg = copiedMsg)
+                }
                 if (changelogContent == "loading") {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp))
