@@ -333,7 +333,12 @@ private fun ChangelogScreen(
                 )
             }
             if (entry.changelogUrl.isNotEmpty() && entry.changelogUrl != "(Not found)") {
-                ChangelogLinkActions(url = entry.changelogUrl, copiedMsg = copiedMsg, center = true)
+                ChangelogLinkActions(
+                    url = entry.changelogUrl,
+                    copiedMsg = copiedMsg,
+                    center = true,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
             }
             if (loading) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -371,12 +376,17 @@ private fun ChangelogScreen(
  * 避免用户拿到的是浏览器里只显示源码的 JS 文件。
  */
 @Composable
-private fun ChangelogLinkActions(url: String, copiedMsg: String, center: Boolean = false) {
+private fun ChangelogLinkActions(
+    url: String,
+    copiedMsg: String,
+    center: Boolean = false,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val pageUrl = VivoOtaClient.changelogPageUrl(url)
     Row(
-        modifier = if (center) Modifier.fillMaxWidth() else Modifier,
+        modifier = (if (center) Modifier.fillMaxWidth() else Modifier).then(modifier),
         horizontalArrangement = if (center) Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally) else Arrangement.spacedBy(20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -506,9 +516,9 @@ private fun DeviceTypeCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
 @Composable
 private fun AndroidVersionCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
     val customStr = stringResource(R.string.custom_version)
-    val androidVersions = listOf("13", "14", "15", "16", customStr)
-    val androidIndex = if (state.isCustomAndroidVersion) 4
-        else androidVersions.indexOf(state.androidVersion.toString()).takeIf { it >= 0 } ?: 3
+    val androidVersions = listOf("13", "14", "15", "16", "17", customStr)
+    val androidIndex = if (state.isCustomAndroidVersion) 5
+        else androidVersions.indexOf(state.androidVersion.toString()).takeIf { it >= 0 } ?: 4
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
             OverlayDropdownPreference(

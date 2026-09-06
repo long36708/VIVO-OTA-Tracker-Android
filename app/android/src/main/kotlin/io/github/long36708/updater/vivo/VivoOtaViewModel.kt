@@ -126,10 +126,10 @@ class VivoOtaViewModel : ViewModel() {
         val majorVersion = if (v.contains('.')) {
             v.substringBefore('.').toIntOrNull()
         } else {
-            v.toIntOrNull()?.takeIf { it in 13..16 }
+            v.toIntOrNull()?.takeIf { it in 13..17 }
         }
         if (majorVersion != null && majorVersion > 0) {
-            if (majorVersion in 13..16) {
+            if (majorVersion in 13..17) {
                 _uiState.update { it.copy(softwareVersion = v, androidVersion = majorVersion, isCustomAndroidVersion = false) }
             } else {
                 _uiState.update { it.copy(softwareVersion = v, androidVersion = majorVersion, isCustomAndroidVersion = true, customAndroidVersion = majorVersion.toString()) }
