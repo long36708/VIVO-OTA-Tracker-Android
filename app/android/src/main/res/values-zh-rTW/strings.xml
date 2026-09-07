@@ -27,7 +27,14 @@
     <string name="label_package_type">包類型</string>
     <string name="pkg_full">完整包</string>
     <string name="pkg_incremental">增量包</string>
-    <string name="pkg_locked_incremental">嘗鮮 / 公測 / 內測通道僅支援增量包</string>
+    <string name="pkg_locked_incremental">嚐鮮 / 公測 / 內測通道僅支援增量包</string>
+
+    <!-- 更新頻道 -->
+    <string name="label_query_channel">更新頻道</string>
+    <string name="channel_normal">正式版</string>
+    <string name="channel_trial">嚐鮮包</string>
+    <string name="channel_beta">公測</string>
+    <string name="channel_alpha">內測</string>
 
     <!-- Query -->
     <string name="btn_query">查詢 OTA 更新</string>
@@ -106,4 +113,5 @@
     <string name="payload_extract_success">%1$s 提取完成</string>
     <string name="payload_extract_failed">%1$s 提取失敗</string>
     <string name="payload_batch_complete">批次完成: %1$d 成功, %2$d 失敗</string>
+    <string name="devices_updated">裝置清單已更新</string>
 </resources>

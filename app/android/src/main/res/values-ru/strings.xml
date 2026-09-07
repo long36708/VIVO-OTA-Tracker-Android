@@ -27,7 +27,14 @@
     <string name="label_package_type">Тип пакета</string>
     <string name="pkg_full">Полный пакет</string>
     <string name="pkg_incremental">Инкрементальный</string>
-    <string name="pkg_locked_incremental">В каналах Trial / Beta / Alpha поддерживаются только инкрементальные пакеты</string>
+    <string name="pkg_locked_incremental">Каналы раннего доступа, открытой и закрытой беты поддерживают только инкрементальные пакеты</string>
+
+    <!-- Канал обновлений -->
+    <string name="label_query_channel">Канал обновлений</string>
+    <string name="channel_normal">Стабильная версия</string>
+    <string name="channel_trial">Ранний доступ</string>
+    <string name="channel_beta">Открытая бета</string>
+    <string name="channel_alpha">Закрытая бета</string>
 
     <!-- Query -->
     <string name="btn_query">Запросить OTA-обновление</string>
@@ -106,4 +113,5 @@
     <string name="payload_extract_success">%1$s извлечение завершено</string>
     <string name="payload_extract_failed">%1$s ошибка извлечения</string>
     <string name="payload_batch_complete">Готово: %1$d успешно, %2$d с ошибкой</string>
+    <string name="devices_updated">Список устройств обновлён</string>
 </resources>

@@ -27,7 +27,14 @@
     <string name="label_package_type">Jenis paket</string>
     <string name="pkg_full">Paket lengkap</string>
     <string name="pkg_incremental">Inkremental</string>
-    <string name="pkg_locked_incremental">Saluran Trial / Beta / Alpha hanya mendukung paket inkremental</string>
+    <string name="pkg_locked_incremental">Saluran Akses Awal / Beta Publik / Beta Tertutup hanya mendukung paket inkremental</string>
+
+    <!-- Saluran pembaruan -->
+    <string name="label_query_channel">Saluran pembaruan</string>
+    <string name="channel_normal">Versi stabil</string>
+    <string name="channel_trial">Akses awal</string>
+    <string name="channel_beta">Beta publik</string>
+    <string name="channel_alpha">Beta tertutup</string>
 
     <!-- Query -->
     <string name="btn_query">Cari Pembaruan OTA</string>
@@ -106,4 +113,5 @@
     <string name="payload_extract_success">%1$s ekstraksi selesai</string>
     <string name="payload_extract_failed">%1$s ekstraksi gagal</string>
     <string name="payload_batch_complete">Selesai: %1$d berhasil, %2$d gagal</string>
+    <string name="devices_updated">Daftar perangkat diperbarui</string>
 </resources>

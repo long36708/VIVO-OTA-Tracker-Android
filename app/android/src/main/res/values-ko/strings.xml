@@ -27,7 +27,14 @@
     <string name="label_package_type">패키지 유형</string>
     <string name="pkg_full">전체 패키지</string>
     <string name="pkg_incremental">증분</string>
-    <string name="pkg_locked_incremental">Trial / Beta / Alpha 채널은 증분 패키지만 지원합니다</string>
+    <string name="pkg_locked_incremental">얼리 액세스 / 퍼블릭 베타 / 클로즈드 베타 채널은 증분 패키지만 지원합니다</string>
+
+    <!-- 업데이트 채널 -->
+    <string name="label_query_channel">업데이트 채널</string>
+    <string name="channel_normal">정식 버전</string>
+    <string name="channel_trial">얼리 액세스</string>
+    <string name="channel_beta">퍼블릭 베타</string>
+    <string name="channel_alpha">클로즈드 베타</string>
 
     <!-- Query -->
     <string name="btn_query">OTA 업데이트 조회</string>
@@ -106,4 +113,5 @@
     <string name="payload_extract_success">%1$s 추출 완료</string>
     <string name="payload_extract_failed">%1$s 추출 실패</string>
     <string name="payload_batch_complete">완료: %1$d 성공, %2$d 실패</string>
+    <string name="devices_updated">기기 목록이 업데이트되었습니다</string>
 </resources>

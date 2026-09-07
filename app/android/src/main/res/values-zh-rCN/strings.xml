@@ -29,6 +29,13 @@
     <string name="pkg_incremental">增量包</string>
     <string name="pkg_locked_incremental">尝鲜 / 公测 / 内测通道仅支持增量包</string>
 
+    <!-- 更新频道 -->
+    <string name="label_query_channel">更新频道</string>
+    <string name="channel_normal">正式版</string>
+    <string name="channel_trial">尝鲜包</string>
+    <string name="channel_beta">公测</string>
+    <string name="channel_alpha">内测</string>
+
     <!-- Query -->
     <string name="btn_query">查询 OTA 更新</string>
     <string name="querying">查询中\u2026</string>
@@ -106,4 +113,5 @@
     <string name="payload_extract_success">%1$s 提取完成</string>
     <string name="payload_extract_failed">%1$s 提取失败</string>
     <string name="payload_batch_complete">批量完成: %1$d 成功, %2$d 失败</string>
+    <string name="devices_updated">设备列表已更新</string>
 </resources>

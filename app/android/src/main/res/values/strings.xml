@@ -27,14 +27,14 @@
     <string name="label_package_type">Package type</string>
     <string name="pkg_full">Full package</string>
     <string name="pkg_incremental">Incremental</string>
-    <string name="pkg_locked_incremental">Trial / Beta / Alpha channels only support incremental packages</string>
+    <string name="pkg_locked_incremental">Early Access, Public Beta and Closed Beta channels only support incremental packages</string>
 
     <!-- Query channel -->
-    <string name="label_query_channel">Query channel</string>
-    <string name="channel_normal">Official (Normal)</string>
-    <string name="channel_trial">Trial (尝鲜包)</string>
-    <string name="channel_beta">Beta (公测)</string>
-    <string name="channel_alpha">Alpha (内测)</string>
+    <string name="label_query_channel">Update channel</string>
+    <string name="channel_normal">Stable (Official)</string>
+    <string name="channel_trial">Early Access</string>
+    <string name="channel_beta">Public Beta</string>
+    <string name="channel_alpha">Closed Beta</string>
 
     <!-- Query -->
     <string name="btn_query">Query OTA Update</string>
@@ -113,4 +113,5 @@
     <string name="payload_extract_success">%1$s extraction complete</string>
     <string name="payload_extract_failed">%1$s extraction failed</string>
     <string name="payload_batch_complete">Batch complete: %1$d success, %2$d failed</string>
+    <string name="devices_updated">Device list updated</string>
 </resources>

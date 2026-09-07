@@ -27,7 +27,14 @@
     <string name="label_package_type">パッケージタイプ</string>
     <string name="pkg_full">フルパッケージ</string>
     <string name="pkg_incremental">差分</string>
-    <string name="pkg_locked_incremental">Trial / Beta / Alpha チャンネルは差分パッケージのみ対応</string>
+    <string name="pkg_locked_incremental">アーリーアクセス / パブリックベータ / クローズドベータチャネルは増分パッケージのみ対応</string>
+
+    <!-- 更新チャネル -->
+    <string name="label_query_channel">アップデートチャネル</string>
+    <string name="channel_normal">正式版</string>
+    <string name="channel_trial">アーリーアクセス</string>
+    <string name="channel_beta">パブリックベータ</string>
+    <string name="channel_alpha">クローズドベータ</string>
 
     <!-- Query -->
     <string name="btn_query">OTA 更新を検索</string>
@@ -106,4 +113,5 @@
     <string name="payload_extract_success">%1$s の抽出が完了しました</string>
     <string name="payload_extract_failed">%1$s の抽出に失敗しました</string>
     <string name="payload_batch_complete">完了: %1$d 成功, %2$d 失敗</string>
+    <string name="devices_updated">機種リストを更新しました</string>
 </resources>

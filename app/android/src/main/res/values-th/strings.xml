@@ -27,7 +27,14 @@
     <string name="label_package_type">ประเภทแพ็กเกจ</string>
     <string name="pkg_full">แพ็กเกจเต็ม</string>
     <string name="pkg_incremental">แบบเพิ่มเติม</string>
-    <string name="pkg_locked_incremental">ช่องทาง Trial / Beta / Alpha รองรับเฉพาะแพ็กเกจแบบเพิ่มเติม</string>
+    <string name="pkg_locked_incremental">ช่องทางทดลองใช้ก่อน / เบต้าสาธารณะ / เบต้าแบบปิด รองรับเฉพาะแพ็กเกจแบบเพิ่มเติม</string>
+
+    <!-- ช่องทางอัปเดต -->
+    <string name="label_query_channel">ช่องทางอัปเดต</string>
+    <string name="channel_normal">เวอร์ชันทางการ</string>
+    <string name="channel_trial">ทดลองใช้ก่อน</string>
+    <string name="channel_beta">เบต้าสาธารณะ</string>
+    <string name="channel_alpha">เบต้าแบบปิด</string>
 
     <!-- Query -->
     <string name="btn_query">ค้นหาอัปเดต OTA</string>
@@ -106,4 +113,5 @@
     <string name="payload_extract_success">แยกไฟล์ %1$s เสร็จสิ้น</string>
     <string name="payload_extract_failed">แยกไฟล์ %1$s ล้มเหลว</string>
     <string name="payload_batch_complete">เสร็จสิ้น: %1$d สำเร็จ, %2$d ล้มเหลว</string>
+    <string name="devices_updated">อัปเดตรายการอุปกรณ์แล้ว</string>
 </resources>
