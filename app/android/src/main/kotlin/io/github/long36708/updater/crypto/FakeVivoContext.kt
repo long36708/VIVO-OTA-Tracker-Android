@@ -1,4 +1,4 @@
-package com.mytiantian.updater.crypto
+package io.github.long36708.updater.crypto
 
 import android.content.Context
 import android.content.ContextWrapper

@@ -17,7 +17,7 @@
         android:theme="@style/Theme.Updater"
         tools:ignore="UnusedAttribute">
         <activity
-            android:name="com.mytiantian.updater.MainActivity"
+            android:name="io.github.long36708.updater.MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|mnc|colorMode|density|fontScale|fontWeightAdjustment|keyboard|layoutDirection|locale|mcc|navigation|smallestScreenSize|touchscreen|uiMode"
             android:enableOnBackInvokedCallback="true"
             android:exported="true"

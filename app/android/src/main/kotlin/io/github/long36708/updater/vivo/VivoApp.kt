@@ -1,4 +1,4 @@
-package com.mytiantian.updater.vivo
+package io.github.long36708.updater.vivo
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -50,6 +50,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
@@ -70,9 +71,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mytiantian.updater.R
+import io.github.long36708.updater.R
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -91,14 +94,15 @@ import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.darkColorScheme
 import top.yukonga.miuix.kmp.theme.lightColorScheme
-import com.mytiantian.updater.vivo.payload.PayloadDumperScreen
-import com.mytiantian.updater.vivo.payload.VivoPayloadViewModel
+import io.github.long36708.updater.vivo.payload.PayloadDumperScreen
+import io.github.long36708.updater.vivo.payload.VivoPayloadViewModel
 
 @Composable
 fun VivoApp(viewModel: VivoOtaViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsState()
     var showAbout by remember { mutableStateOf(false) }
     var showPayloadDumper by remember { mutableStateOf(false) }
+    var changelogEntry by remember { mutableStateOf<QueryHistoryEntry?>(null) }
     val payloadViewModel: VivoPayloadViewModel = viewModel()
     val context = LocalContext.current
     val darkMode = isSystemInDarkTheme()
@@ -229,7 +233,18 @@ fun VivoApp(viewModel: VivoOtaViewModel = viewModel()) {
                     }
                 }
                 if (state.history.isNotEmpty()) {
-                    item { HistoryCard(state, viewModel) }
+                    item {
+                        HistoryCard(
+                            state = state,
+                            viewModel = viewModel,
+                            payloadViewModel = payloadViewModel,
+                            onViewPartitions = { url ->
+                                payloadViewModel.parseFromUrl(url)
+                                showPayloadDumper = true
+                            },
+                            onViewChangelog = { changelogEntry = it }
+                        )
+                    }
                 }
             }
         }
@@ -241,6 +256,159 @@ fun VivoApp(viewModel: VivoOtaViewModel = viewModel()) {
                 onBack = { showPayloadDumper = false }
             )
         }
+        if (changelogEntry != null) {
+            ChangelogScreen(
+                entry = changelogEntry!!,
+                viewModel = viewModel,
+                onBack = { changelogEntry = null }
+            )
+        }
+    }
+}
+
+/**
+ * 独立的更新日志页：从历史记录打开，标题自带该历史项的机型/版本号，
+ * 自行管理日志加载状态，完全不触碰查询页的全局 changelogContent，
+ * 避免“日志版本号”与“当前查询结果版本号”混淆。
+ */
+@Composable
+private fun ChangelogScreen(
+    entry: QueryHistoryEntry,
+    viewModel: VivoOtaViewModel,
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val copiedMsg = stringResource(R.string.copied)
+    val title = if (entry.model.isNotEmpty()) entry.model else entry.codename
+    val subtitle = if (entry.resultVersion.isNotEmpty()) entry.resultVersion else entry.swVersion
+    var content by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(entry.changelogUrl) {
+        loading = true
+        content = withContext(Dispatchers.IO) { viewModel.getChangelog(entry.changelogUrl) }
+        loading = false
+    }
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            SmallTopAppBar(
+                title = stringResource(R.string.changelog_title),
+                navigationIcon = {
+                    Text(
+                        text = "←",
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .clickable { onBack() },
+                        fontSize = 20.sp
+                    )
+                },
+                scrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MiuixTheme.colorScheme.background)
+                .padding(
+                    top = paddingValues.calculateTopPadding() + 16.dp,
+                    bottom = paddingValues.calculateBottomPadding() + 32.dp,
+                    start = 16.dp,
+                    end = 16.dp
+                )
+                .verticalScroll(rememberScrollState())
+        ) {
+            if (title.isNotEmpty() || subtitle.isNotEmpty()) {
+                Text(
+                    text = "$title $subtitle".trim(),
+                    fontSize = 15.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
+            if (entry.changelogUrl.isNotEmpty() && entry.changelogUrl != "(Not found)") {
+                ChangelogLinkActions(
+                    url = entry.changelogUrl,
+                    copiedMsg = copiedMsg,
+                    center = true,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+            }
+            if (loading) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                    Text(
+                        stringResource(R.string.loading),
+                        modifier = Modifier.padding(start = 12.dp),
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    )
+                }
+            } else {
+                val text = content ?: stringResource(R.string.no_changelog)
+                Text(
+                    text = text,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    fontSize = 13.sp,
+                    modifier = Modifier.combinedClickable(
+                        onClick = {},
+                        onLongClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            cb.setPrimaryClip(ClipData.newPlainText("changelog", text))
+                            Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 更新日志 H5 地址操作行：复制链接 / 跳转系统浏览器打开。
+ * 入参是日志数据文件地址（/data/CN.js），复制与打开前先还原成 H5 页面地址，
+ * 避免用户拿到的是浏览器里只显示源码的 JS 文件。
+ */
+@Composable
+private fun ChangelogLinkActions(
+    url: String,
+    copiedMsg: String,
+    center: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val pageUrl = VivoOtaClient.changelogPageUrl(url)
+    Row(
+        modifier = (if (center) Modifier.fillMaxWidth() else Modifier).then(modifier),
+        horizontalArrangement = if (center) Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally) else Arrangement.spacedBy(20.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = stringResource(R.string.btn_copy_link),
+            color = MiuixTheme.colorScheme.primary,
+            fontSize = 13.sp,
+            modifier = Modifier.clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cb.setPrimaryClip(ClipData.newPlainText("changelogUrl", pageUrl))
+                Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+            }
+        )
+        Text(
+            text = stringResource(R.string.btn_open_in_browser),
+            color = MiuixTheme.colorScheme.primary,
+            fontSize = 13.sp,
+            modifier = Modifier.clickable {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(pageUrl)))
+            }
+        )
     }
 }
 
@@ -348,9 +516,9 @@ private fun DeviceTypeCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
 @Composable
 private fun AndroidVersionCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
     val customStr = stringResource(R.string.custom_version)
-    val androidVersions = listOf("13", "14", "15", "16", customStr)
-    val androidIndex = if (state.isCustomAndroidVersion) 4
-        else androidVersions.indexOf(state.androidVersion.toString()).takeIf { it >= 0 } ?: 3
+    val androidVersions = listOf("13", "14", "15", "16", "17", customStr)
+    val androidIndex = if (state.isCustomAndroidVersion) 5
+        else androidVersions.indexOf(state.androidVersion.toString()).takeIf { it >= 0 } ?: 4
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
             OverlayDropdownPreference(
@@ -405,6 +573,22 @@ private fun CodenameInfoCard(state: VivoOtaUiState) {
 
 @Composable
 private fun VersionInputCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
+    // ADR-003 D5：手动模式下机型下拉是隐藏的，不存在「选中机型」语境，不提供推荐版本。
+    // 此处直接查 database 与 ModelDropdownCard 的既有写法保持一致。
+    val recommended = if (state.manualMode) "" else {
+        VivoDeviceDatabase.devicesOf(state.selectedSeries)
+            .getOrNull(state.selectedModelIndex)?.defaultSwVersion.orEmpty()
+    }
+    // 三者全满足才显示：非手动模式、机型已配置、且推荐值与当前值不同
+    val showRecommended = recommended.isNotBlank() &&
+        recommended.trim() != state.softwareVersion.trim()
+    // 可选版本号数组下拉：仅当机型配置了 optional_sw_versions 才出现
+    val optional = if (state.manualMode) emptyList() else {
+        VivoDeviceDatabase.devicesOf(state.selectedSeries)
+            .getOrNull(state.selectedModelIndex)?.optionalSwVersions ?: emptyList()
+    }
+    // 当前版本号若在数组中则高亮对应项，否则默认 0（仅用于下拉初始定位）
+    val optionalIndex = optional.indexOf(state.softwareVersion).takeIf { it >= 0 } ?: 0
     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         Column {
             TextField(
@@ -416,6 +600,15 @@ private fun VersionInputCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel)
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
             )
+            if (optional.isNotEmpty()) {
+                OverlayDropdownPreference(
+                    title = stringResource(R.string.sw_version_optional),
+                    items = optional,
+                    selectedIndex = optionalIndex,
+                    onSelectedIndexChange = { viewModel.applyOptionalSwVersion(optional[it]) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -425,8 +618,20 @@ private fun VersionInputCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel)
                     text = stringResource(R.string.hint_sw_version),
                     fontSize = 11.sp,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    modifier = Modifier.padding(start = 4.dp)
+                    modifier = Modifier
+                        .padding(start = 4.dp)
+                        .weight(1f)
                 )
+                if (showRecommended) {
+                    Text(
+                        text = stringResource(R.string.sw_version_use_recommended),
+                        fontSize = 12.sp,
+                        color = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clickable { viewModel.applyRecommendedSwVersion() }
+                            .padding(start = 8.dp)
+                    )
+                }
             }
         }
     }
@@ -495,6 +700,46 @@ private fun ChannelCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
         )
     }
 }
+
+// 出口版域名已失效，暂时隐藏该选项。恢复时取消注释并在主 LazyColumn 中重新调用。
+// @Composable
+// private fun DomainCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
+//     val domains = listOf(
+//         stringResource(R.string.domain_cn),
+//         stringResource(R.string.domain_global)
+//     )
+//     val domainValues = listOf("CN", "GLOBAL")
+//     val selectedIndex = domainValues.indexOf(state.queryDomain).takeIf { it >= 0 } ?: 0
+//     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+//         OverlayDropdownPreference(
+//             title = stringResource(R.string.label_query_domain),
+//             items = domains,
+//             selectedIndex = selectedIndex,
+//             onSelectedIndexChange = { viewModel.updateQueryDomain(domainValues[it]) },
+//             modifier = Modifier.fillMaxWidth()
+//         )
+//     }
+// }
+
+// 出口版域名已失效，暂时隐藏该选项。恢复时取消注释并在主 LazyColumn 中重新调用。
+// @Composable
+// private fun DomainCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
+//     val domains = listOf(
+//         stringResource(R.string.domain_cn),
+//         stringResource(R.string.domain_global)
+//     )
+//     val domainValues = listOf("CN", "GLOBAL")
+//     val selectedIndex = domainValues.indexOf(state.queryDomain).takeIf { it >= 0 } ?: 0
+//     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+//         OverlayDropdownPreference(
+//             title = stringResource(R.string.label_query_domain),
+//             items = domains,
+//             selectedIndex = selectedIndex,
+//             onSelectedIndexChange = { viewModel.updateQueryDomain(domainValues[it]) },
+//             modifier = Modifier.fillMaxWidth()
+//         )
+//     }
+// }
 
 @Composable
 private fun QueryButton(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
@@ -629,6 +874,9 @@ private fun ResultCard(
             if (changelogContent != null) {
                 HorizontalDivider()
                 Text(stringResource(R.string.changelog_title), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                if (result.changelogUrl.isNotEmpty() && result.changelogUrl != "(Not found)") {
+                    ChangelogLinkActions(url = result.changelogUrl, copiedMsg = copiedMsg)
+                }
                 if (changelogContent == "loading") {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp))
@@ -651,7 +899,13 @@ private fun ResultCard(
 }
 
 @Composable
-private fun HistoryCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
+private fun HistoryCard(
+    state: VivoOtaUiState,
+    viewModel: VivoOtaViewModel,
+    payloadViewModel: VivoPayloadViewModel,
+    onViewPartitions: (String) -> Unit,
+    onViewChangelog: (QueryHistoryEntry) -> Unit
+) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val copiedMsg = stringResource(R.string.copied)
@@ -730,7 +984,10 @@ private fun HistoryCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
                                 viewModel = viewModel,
                                 context = context,
                                 haptic = haptic,
-                                copiedMsg = copiedMsg
+                                copiedMsg = copiedMsg,
+                                payloadViewModel = payloadViewModel,
+                                onViewPartitions = onViewPartitions,
+                                onViewChangelog = onViewChangelog
                             )
                         }
                     }
@@ -800,7 +1057,10 @@ private fun SwipeToDeleteHistoryEntry(
     viewModel: VivoOtaViewModel,
     context: Context,
     haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
-    copiedMsg: String
+    copiedMsg: String,
+    payloadViewModel: VivoPayloadViewModel,
+    onViewPartitions: (String) -> Unit,
+    onViewChangelog: (QueryHistoryEntry) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val offsetX = remember(entry.timestamp) { Animatable(0f) }
@@ -893,6 +1153,50 @@ private fun SwipeToDeleteHistoryEntry(
                         }
                     )
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MiuixTheme.colorScheme.primary)
+                            .clickable { onViewPartitions(entry.downloadUrl) }
+                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.payload_dumper),
+                            color = Color.White,
+                            fontSize = 13.sp
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MiuixTheme.colorScheme.primaryContainer)
+                            .clickable { viewModel.fillHistoryBack(entry) }
+                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.btn_fill),
+                            color = MiuixTheme.colorScheme.onPrimaryContainer,
+                            fontSize = 13.sp
+                        )
+                    }
+                    if (entry.changelogUrl.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MiuixTheme.colorScheme.primaryContainer)
+                                .clickable { onViewChangelog(entry) }
+                                .padding(horizontal = 14.dp, vertical = 7.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.btn_changelog),
+                                color = MiuixTheme.colorScheme.onPrimaryContainer,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -973,8 +1277,8 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(stringResource(R.string.app_name), fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                    val appVersion = "v" + com.mytiantian.updater.AndroidAppContext.versionName
-                    val appVersionCode = com.mytiantian.updater.AndroidAppContext.versionCode
+                    val appVersion = "v" + io.github.long36708.updater.AndroidAppContext.versionName
+                    val appVersionCode = io.github.long36708.updater.AndroidAppContext.versionCode
                     Text(
                         text = "$appVersion ($appVersionCode)",
                         fontSize = 13.sp,
@@ -1036,6 +1340,22 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(6.dp))
 
+                    Text(
+                        text = "JerryTse-OSS / VIVO-OTA-Tracker",
+                        color = MiuixTheme.colorScheme.primary,
+                        fontSize = 12.sp,
+                        modifier = Modifier.combinedClickable(
+                            onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/JerryTse-OSS/VIVO-OTA-Tracker"))) },
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                cb.setPrimaryClip(ClipData.newPlainText("url", "https://github.com/JerryTse-OSS/VIVO-OTA-Tracker"))
+                                Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
                     Text(stringResource(R.string.about_source), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Text(
                         text = "VIVO-OTA-Tracker-Android",
@@ -1055,7 +1375,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     HorizontalDivider()
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        "© 2026 mytiantian001",
+                        "© 2026 mytiantian001 · longmo",
                         fontSize = 11.sp,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                     )
