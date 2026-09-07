@@ -1,0 +1,30 @@
+# Dependabot 版本更新配置
+# - gradle: 读取 gradle/libs.versions.toml 版本目录（含插件与依赖）
+# - github-actions: 更新 .github/workflows 中的 action 版本
+# minor/patch 更新会被合并为一个 PR 以减少噪音；major 更询单独开 PR，便于评估破坏性变更。
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "ci"

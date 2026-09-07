@@ -1,0 +1,40 @@
+# Dependabot PR 自动批准 + 自动合并
+# 前置条件（二选一，需在 GitHub 仓库设置里开启一次）：
+#   1. Settings → General → Pull Requests → 勾选 "Allow auto-merge"（推荐，无需分支保护）
+#   2. 或为 main 配置分支保护规则并要求状态检查通过
+# 自动合并会在 CI（Android CI）通过后自动执行 squash merge。
+# 注意：仓库 Pages/无权限时会自动跳过，不会报错中断。
+name: Dependabot Auto-merge
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  dependabot:
+    name: Approve & enable auto-merge
+    runs-on: ubuntu-latest
+    # 只处理 Dependabot 本体发起的 PR，且防止 fork 场景下 GITHUB_TOKEN 无效
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.repository == github.event.pull_request.head.repo.full_name
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Auto-approve
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge (squash)
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
