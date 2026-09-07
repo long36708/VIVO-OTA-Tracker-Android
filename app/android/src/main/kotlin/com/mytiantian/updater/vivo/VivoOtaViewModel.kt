@@ -35,6 +35,58 @@ class VivoOtaViewModel : ViewModel() {
         loadHistory()
         initCrypto()
         applyDefaultSelection()
+        refreshDevices()
+    }
+
+    /**
+     * 后台从远端拉取最新设备列表，成功后修正当前选中项并提示。
+     */
+    private fun refreshDevices() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = VivoDeviceDatabase.refresh(ctxApplication())
+            if (result == VivoDeviceDatabase.RefreshResult.UPDATED) {
+                _uiState.update { st ->
+                    st.copy(toastMessage = ctxApplication().getString(R.string.devices_updated))
+                }
+                fixupSelectionAfterRefresh()
+            }
+        }
+    }
+
+    private fun ctxApplication(): Context =
+        AndroidAppContext.getApplicationContext()
+            ?: throw IllegalStateException("AndroidAppContext not initialized")
+
+    /**
+     * 设备列表更新后，尽量保持用户当前的选择；
+     * 当前系列/机型不存在时回退到该系列的最近有效项。
+     */
+    private fun fixupSelectionAfterRefresh() {
+        val st = _uiState.value
+        val seriesList = VivoDeviceDatabase.series
+        if (seriesList.isEmpty()) return
+        // 精确匹配失败时尝试包含关系（如内置数据 "X 系列" vs 远端 "vivo X 系列"）
+        val series = when {
+            st.selectedSeries in seriesList -> st.selectedSeries
+            else -> seriesList.firstOrNull {
+                it.contains(st.selectedSeries) || st.selectedSeries.contains(it)
+            } ?: seriesList.first()
+        }
+        val devices = VivoDeviceDatabase.devicesOf(series)
+        if (devices.isEmpty()) return
+        val byName = devices.indexOfFirst { it.model == st.selectedModel }
+        val index = if (byName >= 0) byName else st.selectedModelIndex.coerceIn(0, devices.size - 1)
+        val device = devices[index]
+        _uiState.update {
+            it.copy(
+                selectedSeries = series,
+                selectedModelIndex = index,
+                selectedModel = device.model,
+                selectedCodename = device.codename,
+                selectedModelSwVer = device.model_sw_ver,
+                deviceType = detectDeviceType(series)
+            )
+        }
     }
 
     private fun applyDefaultSelection() {
