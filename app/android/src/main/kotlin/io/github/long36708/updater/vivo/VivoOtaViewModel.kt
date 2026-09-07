@@ -44,14 +44,31 @@ class VivoOtaViewModel : ViewModel() {
      */
     private fun refreshDevices() {
         viewModelScope.launch(Dispatchers.IO) {
-            val result = VivoDeviceDatabase.refresh(ctxApplication())
-            if (result == VivoDeviceDatabase.RefreshResult.UPDATED) {
-                _uiState.update { st ->
-                    st.copy(toastMessage = ctxApplication().getString(R.string.devices_updated))
+            when (VivoDeviceDatabase.refresh(ctxApplication())) {
+                VivoDeviceDatabase.RefreshResult.UPDATED -> {
+                    _uiState.update { st ->
+                        st.copy(toastMessage = ctxApplication().getString(R.string.devices_updated))
+                    }
+                    fixupSelectionAfterRefresh()
                 }
-                fixupSelectionAfterRefresh()
+                // 远端数据与缓存一致时同样要修正：冷启动读到的缓存系列名可能是远端命名
+                // （"VIVO X 系列"），与内置默认名（"X 系列"）不同，applyDefaultSelection
+                // 会落空导致 codename 为空、查询按钮永久禁用。
+                VivoDeviceDatabase.RefreshResult.UNCHANGED -> {
+                    if (needsSelectionFixup()) fixupSelectionAfterRefresh()
+                }
+                VivoDeviceDatabase.RefreshResult.FAILED -> Unit
             }
         }
+    }
+
+    /** 当前选择的系列在设备库中不存在，或 codename 仍为空 → 需要用现有数据重新定位。 */
+    private fun needsSelectionFixup(): Boolean {
+        val st = _uiState.value
+        if (st.manualMode) return false
+        val seriesList = VivoDeviceDatabase.series
+        if (seriesList.isEmpty()) return false
+        return st.selectedSeries !in seriesList || st.selectedCodename.isEmpty()
     }
 
     private fun ctxApplication(): Context =
@@ -66,13 +83,7 @@ class VivoOtaViewModel : ViewModel() {
         val st = _uiState.value
         val seriesList = VivoDeviceDatabase.series
         if (seriesList.isEmpty()) return
-        // 精确匹配失败时尝试包含关系（如内置数据 "X 系列" vs 远端 "vivo X 系列"）
-        val series = when {
-            st.selectedSeries in seriesList -> st.selectedSeries
-            else -> seriesList.firstOrNull {
-                it.contains(st.selectedSeries) || st.selectedSeries.contains(it)
-            } ?: seriesList.first()
-        }
+        val series = resolveSeries(seriesList, st.selectedSeries)
         val devices = VivoDeviceDatabase.devicesOf(series)
         if (devices.isEmpty()) return
         val byName = devices.indexOfFirst { it.model == st.selectedModel }
@@ -88,18 +99,28 @@ class VivoOtaViewModel : ViewModel() {
                 deviceType = detectDeviceType(series)
             )
         }
+        // ADR-003 D4：设备列表在线刷新后，若用户未手动覆盖版本号，跟随新选中机型的推荐值
+        if (!_uiState.value.isSwVersionCustom) {
+            applyRecommendedSwVersion()
+        }
     }
 
     private fun applyDefaultSelection() {
         val defaultSeries = "X 系列"
         val defaultModel = "vivo X200 Pro mini"
-        val devices = VivoDeviceDatabase.devicesOf(defaultSeries)
+        val seriesList = VivoDeviceDatabase.series
+        if (seriesList.isEmpty()) return
+        // 系列名在内置数据与远端数据里不同（"X 系列" vs "VIVO X 系列"），
+        // 必须先解析成当前设备库里真实存在的名字，否则 devicesOf 返回空、
+        // codename 为空导致查询按钮不可点击。
+        val series = resolveSeries(seriesList, defaultSeries)
+        val devices = VivoDeviceDatabase.devicesOf(series)
         val index = devices.indexOfFirst { it.model == defaultModel }.coerceAtLeast(0)
         val device = devices.getOrNull(index) ?: devices.firstOrNull() ?: return
-        val detectedType = detectDeviceType(defaultSeries)
+        val detectedType = detectDeviceType(series)
         _uiState.update {
             it.copy(
-                selectedSeries = defaultSeries,
+                selectedSeries = series,
                 selectedModelIndex = index,
                 selectedModel = device.model,
                 selectedCodename = device.codename,
@@ -345,6 +366,27 @@ class VivoOtaViewModel : ViewModel() {
         client.fetchChangelog(url)
     }
 
+
+    /**
+     * 把偏好系列名映射到设备库中真实存在的键。
+     * 内置数据与远端数据的命名不一致（"X 系列" vs "VIVO X 系列"），
+     * 去品牌前缀后比较；仍失败再做带词边界的包含匹配，最后回退到第一个系列。
+     */
+    private fun resolveSeries(candidates: List<String>, preferred: String): String {
+        if (preferred in candidates) return preferred
+        // 去品牌前缀后比较：远端数据的 "VIVO X 系列" / "IQOO 旗舰系列" 与内置 "X 系列" / "iQOO 旗舰系列" 归一
+        val target = VivoDeviceDatabase.normalizeSeriesName(preferred)
+        candidates.firstOrNull { VivoDeviceDatabase.normalizeSeriesName(it) == target }
+            ?.let { return it }
+        // 兜底包含匹配：必须落在词边界上。
+        // 否则 "X 系列" 会命中 "NEX 系列"（N-E-X-空格-系-列，X 后正好是空格），
+        // 而 NEX 系列在列表中排在 VIVO X 系列之前，firstOrNull 会选错。
+        candidates.firstOrNull {
+            val idx = it.indexOf(target, ignoreCase = true)
+            idx >= 0 && (idx == 0 || !it[idx - 1].isLetterOrDigit())
+        }?.let { return it }
+        return candidates.first()
+    }
 
     private fun detectDeviceType(series: String): String {
         return if (series.contains("平板") || series.contains("穿戴")) "tablet" else "phone"

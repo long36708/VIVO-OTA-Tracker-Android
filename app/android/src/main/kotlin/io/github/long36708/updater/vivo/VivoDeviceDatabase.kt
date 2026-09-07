@@ -38,9 +38,10 @@ object VivoDeviceDatabase {
 
     fun load(context: Context) {
         if (database.isNotEmpty()) return
-        // 优先使用上次在线更新成功后的缓存，其次回退到打包内置的列表
+        val local = runCatching { loadFromAssets(context) }.getOrDefault(emptyMap())
         val cached = runCatching { readCache(context) }.getOrNull()
-        database = cached ?: loadFromAssets(context)
+        // 缓存与内置数据合并：内置（或后续版本新增）的系列/机型即使缓存里没有也要展示
+        database = if (cached == null) local else mergeDeviceData(cached, local)
     }
 
     val series: List<String> get() = database.keys.toList()
@@ -68,12 +69,14 @@ object VivoDeviceDatabase {
                 Log.w(TAG, "Remote device list parsed empty, keep current data")
                 return RefreshResult.FAILED
             }
-            val serialized = serialize(parsed)
+            // 与内置 JSON 合并：内置新增的系列/机型补进来，并把 defaultSwVersion 等元数据继承给远端条目
+            val merged = mergeDeviceData(parsed, runCatching { loadFromAssets(context) }.getOrDefault(emptyMap()))
+            val serialized = serialize(merged)
             val oldCache = runCatching { readCacheRaw(context) }.getOrNull()
             if (serialized == oldCache) return RefreshResult.UNCHANGED
             runCatching { writeCache(context, serialized) }
                 .onFailure { Log.w(TAG, "Failed to persist device cache", it) }
-            database = parsed
+            database = merged
             version.incrementAndGet()
             RefreshResult.UPDATED
         } catch (e: Exception) {
@@ -166,6 +169,84 @@ object VivoDeviceDatabase {
         .replace("&#39;", "'")
         .replace("&nbsp;", " ")
 
+    /**
+     * 把内置 vivo_devices.json 合并进主数据（远端拉取结果或本地缓存）。
+     *
+     * 合并规则：
+     * - 主数据条目在前，内置独有的条目按「该系列内已有条目之后」追加；
+     *   判定同一条目的键是 codename + model_sw_ver（同一机型有多个固件变体，各自独立成条）。
+     * - 内置独有的系列整组追加到末尾，保证本地新增的系列一定可见。
+     * - 系列名按去品牌前缀归一（内置 "X 系列" ↔ 远端 "VIVO X 系列"），
+     *   归一后同名系列合并进同一个键，展示名取主数据里的写法，避免出现两个 X 系列。
+     * - defaultSwVersion / optionalSwVersions 仅存在于内置 JSON，按 codename 继承给主数据条目。
+     */
+    private fun mergeDeviceData(
+        primary: Map<String, List<VivoDevice>>,
+        local: Map<String, List<VivoDevice>>
+    ): Map<String, List<VivoDevice>> {
+        if (local.isEmpty()) return primary
+        if (primary.isEmpty()) return local
+
+        // 内置元数据索引：codename -> 带推荐版本号的那一条
+        val metaByCodename = mutableMapOf<String, VivoDevice>()
+        for ((_, devices) in local) {
+            for (d in devices) {
+                if (d.defaultSwVersion.isEmpty() && d.optionalSwVersions.isEmpty()) continue
+                val prev = metaByCodename[d.codename]
+                if (prev == null || prev.defaultSwVersion.isEmpty()) metaByCodename[d.codename] = d
+            }
+        }
+
+        val result = linkedMapOf<String, MutableList<VivoDevice>>()
+        val keyBySeriesName = linkedMapOf<String, String>()
+        val seenKeys = mutableMapOf<String, MutableSet<String>>()
+
+        fun append(seriesName: String, seriesKey: String, devices: List<VivoDevice>) {
+            if (seriesName !in keyBySeriesName) keyBySeriesName[seriesName] = seriesKey
+            val list = result.getOrPut(seriesName) { mutableListOf() }
+            val seen = seenKeys.getOrPut(seriesKey) { mutableSetOf() }
+            for (d in devices) {
+                if (!seen.add(deviceKey(d))) continue
+                val meta = metaByCodename[d.codename]
+                val merged = if (meta != null && d.defaultSwVersion.isEmpty() && d.optionalSwVersions.isEmpty()) {
+                    d.copy(defaultSwVersion = meta.defaultSwVersion, optionalSwVersions = meta.optionalSwVersions)
+                } else d
+                list.add(merged)
+            }
+        }
+
+        for ((series, devices) in primary) {
+            append(series, normalizeSeriesName(series), devices)
+        }
+        for ((series, devices) in local) {
+            val key = normalizeSeriesName(series)
+            // 归一后已存在的系列 → 追加到该系列；否则作为新系列整组加入
+            val target = keyBySeriesName.entries.firstOrNull { it.value == key }?.key ?: series
+            append(target, key, devices)
+        }
+        return result
+    }
+
+    /**
+     * 条目的唯一键。必须带上 model：多个不同机型会共用同一固件，
+     * 例如 PD2056/V2056A 同时对应 "vivo X60 Pro+" 和 "vivo X60t Pro+"、
+     * PD1901/V1901A 对应 "vivo Y3" 和 "vivo Y3s"，只按 codename+model_sw_ver 去重会把它们误删。
+     */
+    private fun deviceKey(d: VivoDevice): String =
+        "${d.codename.trim()}|${d.model_sw_ver.trim()}|${d.model.trim()}"
+
+    /**
+     * 系列名归一：去品牌前缀 + 小写，用于跨数据源对齐。
+     * 内置数据写 "X 系列" / "iQOO 旗舰系列"，远端页面写 "VIVO X 系列" / "IQOO 旗舰系列"。
+     */
+    fun normalizeSeriesName(name: String): String {
+        var s = name.trim()
+        for (brand in listOf("vivo", "iqoo")) {
+            if (s.startsWith(brand, ignoreCase = true)) s = s.substring(brand.length).trim()
+        }
+        return s.lowercase()
+    }
+
     // ------------------------------------------------------------------
     // JSON 序列化（与内置 vivo_devices.json 同构）
     // ------------------------------------------------------------------
@@ -179,6 +260,10 @@ object VivoDeviceDatabase {
                     put("model", d.model)
                     put("codename", d.codename)
                     put("model_sw_ver", d.model_sw_ver)
+                    put("default_sw_version", d.defaultSwVersion)
+                    if (d.optionalSwVersions.isNotEmpty()) {
+                        put("optional_sw_versions", JSONArray(d.optionalSwVersions))
+                    }
                 })
             }
             root.put(series, arr)
