@@ -26,6 +26,11 @@
     <string name="sw_version_use_recommended">Use recommended</string>
     <string name="custom_version">Custom</string>
     <string name="label_sn">SN serial number (optional)</string>
+    <string name="label_imei">IMEI (optional)</string>
+    <string name="imei_random">Random</string>
+    <string name="imei_use_device">Use device</string>
+    <string name="imei_source_device">Read from this device</string>
+    <string name="imei_source_random">Device IMEI unavailable, random generated</string>
     <string name="label_package_type">Package type</string>
     <string name="pkg_full">Full package</string>
     <string name="pkg_incremental">Incremental</string>

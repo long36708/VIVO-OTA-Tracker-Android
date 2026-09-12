@@ -1,5 +1,17 @@
 package io.github.long36708.updater.vivo
 
+/** IMEI 输入框当前值的来源，决定卡片里显示的提示文案。 */
+enum class ImeiSource {
+    /** 自动读取到的本机 IMEI。 */
+    DEVICE,
+
+    /** 本机读不到时自动补的随机值。 */
+    RANDOM,
+
+    /** 用户手动填写。 */
+    MANUAL
+}
+
 data class VivoOtaResult(
     val updateVersion: String = "",
     val filename: String = "",
@@ -52,6 +64,8 @@ data class VivoOtaUiState(
     val isCustomAndroidVersion: Boolean = false,
     val customAndroidVersion: String = "",
     val sn: String = "A0000000000000A",
+    val imei: String = "",
+    val imeiSource: ImeiSource = ImeiSource.RANDOM,
     val isFullPackage: Boolean = true,
     val queryChannel: String = "NORMAL",
     val queryDomain: String = "CN",

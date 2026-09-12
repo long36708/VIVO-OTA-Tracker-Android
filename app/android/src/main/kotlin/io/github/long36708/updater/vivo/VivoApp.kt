@@ -197,6 +197,9 @@ fun VivoApp(viewModel: VivoOtaViewModel = viewModel()) {
                 }
 
                 item { VersionInputCard(state, viewModel) }
+                if (state.deviceType == "phone") {
+                    item { ImeiInputCard(state, viewModel) }
+                }
                 item { SnInputCard(state, viewModel) }
                 item { ChannelCard(state, viewModel) }
                 item { PackageTypeCard(state, viewModel) }
@@ -650,6 +653,57 @@ private fun SnInputCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { viewModel.query() })
         )
+    }
+}
+
+// IMEI 只用于手机机型（pad 分支该字段传空串），平板下无需展示。
+@Composable
+private fun ImeiInputCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
+    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+        Column {
+            TextField(
+                insideMargin = DpSize(16.dp, 24.dp),
+                modifier = Modifier.fillMaxWidth(),
+                value = state.imei,
+                onValueChange = { viewModel.updateImei(it) },
+                label = stringResource(R.string.label_imei),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
+            )
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 手动填写时没有来源提示可说，只留一个占位把按钮推到右侧
+                val hint = when (state.imeiSource) {
+                    ImeiSource.DEVICE -> stringResource(R.string.imei_source_device)
+                    ImeiSource.RANDOM -> stringResource(R.string.imei_source_random)
+                    ImeiSource.MANUAL -> ""
+                }
+                Text(
+                    text = hint,
+                    fontSize = 11.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = stringResource(R.string.imei_use_device),
+                    fontSize = 12.sp,
+                    color = MiuixTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clickable { viewModel.loadDeviceImei() }
+                        .padding(start = 8.dp)
+                )
+                Text(
+                    text = stringResource(R.string.imei_random),
+                    fontSize = 12.sp,
+                    color = MiuixTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clickable { viewModel.generateRandomImei() }
+                        .padding(start = 8.dp)
+                )
+            }
+        }
     }
 }
 

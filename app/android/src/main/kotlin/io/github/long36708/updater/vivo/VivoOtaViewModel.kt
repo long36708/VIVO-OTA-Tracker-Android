@@ -37,6 +37,37 @@ class VivoOtaViewModel : ViewModel() {
         initCrypto()
         applyDefaultSelection()
         refreshDevices()
+        loadDeviceImei()
+    }
+
+    /** 启动 / 手动刷新时读取本机 IMEI；读不到则退化为随机值，保证请求里的 imei 字段始终有效。 */
+    fun loadDeviceImei() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val fromDevice = try {
+                VivoImei.readDevice(ctxApplication())
+            } catch (e: Exception) {
+                Log.w("VivoOtaViewModel", "Failed to read device IMEI", e)
+                ""
+            }
+            _uiState.update {
+                it.copy(
+                    imei = fromDevice.ifEmpty { VivoImei.random() },
+                    imeiSource = if (fromDevice.isNotEmpty()) ImeiSource.DEVICE else ImeiSource.RANDOM
+                )
+            }
+        }
+    }
+
+    /** 用户手动填写：去掉非数字字符并截断到 15 位。 */
+    fun updateImei(v: String) {
+        _uiState.update { it.copy(imei = VivoImei.sanitize(v), imeiSource = ImeiSource.MANUAL) }
+        clearStaleQueryResult()
+    }
+
+    /** 一键随机生成 15 位 IMEI。 */
+    fun generateRandomImei() {
+        _uiState.update { it.copy(imei = VivoImei.random(), imeiSource = ImeiSource.RANDOM) }
+        clearStaleQueryResult()
     }
 
     /**
@@ -430,6 +461,7 @@ class VivoOtaViewModel : ViewModel() {
                     isPhone = state.deviceType == "phone",
                     isFull = state.isFullPackage,
                     sn = state.sn,
+                    imei = state.imei,
                     channel = VivoOtaClient.QueryChannel.valueOf(state.queryChannel),
                     domain = VivoOtaClient.Domain.valueOf(state.queryDomain)
                 )

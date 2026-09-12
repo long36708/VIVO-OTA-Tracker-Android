@@ -26,6 +26,11 @@
     <string name="sw_version_use_recommended">用推荐版本</string>
     <string name="custom_version">自定义</string>
     <string name="label_sn">SN 序列号 (可选)</string>
+    <string name="label_imei">IMEI 号 (可选)</string>
+    <string name="imei_random">随机生成</string>
+    <string name="imei_use_device">用本机</string>
+    <string name="imei_source_device">已读取本机 IMEI</string>
+    <string name="imei_source_random">本机 IMEI 不可用，已随机生成</string>
     <string name="label_package_type">包类型</string>
     <string name="pkg_full">完整包</string>
     <string name="pkg_incremental">增量包</string>

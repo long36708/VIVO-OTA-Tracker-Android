@@ -24,6 +24,8 @@ class VivoOtaClient(private val context: Context) {
     companion object {
         private const val TAG = "VivoOtaClient"
         private const val TOKEN_NATIVE = "jnisgmain_v2@com.bbk.updater"
+        /** redirPost 未返回地址时的兜底下载地址前缀（后接 pkName）。 */
+        private const val PK_BASE_URL = "https://sysupdxdl.vivo.com.cn/upgrade/oem/files/"
 
         /**
          * h5Url 页面地址 → 日志数据文件地址：H5 页面内容由 JS 从 data/CN.js 加载，
@@ -68,6 +70,7 @@ class VivoOtaClient(private val context: Context) {
         isPhone: Boolean,
         isFull: Boolean,
         sn: String = "A0000000000000A",
+        imei: String = "",
         channel: QueryChannel = QueryChannel.NORMAL,
         domain: Domain = Domain.CN
     ): VivoOtaResult {
@@ -80,6 +83,8 @@ class VivoOtaClient(private val context: Context) {
         val random = Random()
         val elapsedtime = if (isPhone) 140000 + random.nextInt(80000) else 2000000 + random.nextInt(500000)
         val isFullInt = if (isFull) 1 else 0
+        // imei 由调用方给出（本机/手输/随机）；为空时退化到客户端自身的解析逻辑
+        val effectiveImei = if (imei.isBlank()) genImei() else VivoImei.sanitize(imei).ifEmpty { genImei() }
 
         val p = LinkedHashMap<String, Any>()
         p["vgcNewActiveVer"] = ""
@@ -124,7 +129,7 @@ class VivoOtaClient(private val context: Context) {
             p["s_n"] = "null"
             p["elapsedtime"] = elapsedtime
             p["st1"] = 100000 + random.nextInt(60000)
-            p["imei"] = genImei()
+            p["imei"] = effectiveImei
             p["ms"] = 0
             p["mtype"] = "no"
             p["radiotype"] = "L"
@@ -177,7 +182,7 @@ class VivoOtaClient(private val context: Context) {
                 cu = "N",
                 dType = if (isPhone) "phone" else "tablet",
                 vgcCu = "V000",
-                imei = genImei(),
+                imei = effectiveImei,
                 snp = sn,
                 isPhone = isPhone,
                 romVer = fullSwVersion
@@ -270,6 +275,14 @@ class VivoOtaClient(private val context: Context) {
             }
         }
 
+        // redirPost 未给出地址（无 pk / 请求失败 / data 缺失）时，按包名回退到固定的 CDN 下载地址
+        if (downloadUrl.isEmpty()) {
+            downloadUrl = fallbackDownloadUrl(pkName)
+            if (downloadUrl.isNotEmpty()) {
+                Log.d(TAG, "downloadUrl empty, fallback to: $downloadUrl")
+            }
+        }
+
         return VivoOtaResult(
             updateVersion = updateVersion,
             filename = pkName,
@@ -299,6 +312,13 @@ class VivoOtaClient(private val context: Context) {
         val rand = Random()
         for (i in 0 until 15) sb.append(rand.nextInt(10))
         return sb.toString()
+    }
+
+    /** 兜底下载地址：`PK_BASE_URL` + 包名。包名缺失/为 "(Not found)" 时返回空串。 */
+    private fun fallbackDownloadUrl(pkName: String): String {
+        val name = pkName.trim().trimStart('/')
+        if (name.isEmpty() || name == "(Not found)") return ""
+        return PK_BASE_URL + name
     }
 
     private fun extractPkUrl(json: String): String? {
