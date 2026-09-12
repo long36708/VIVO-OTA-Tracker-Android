@@ -176,6 +176,10 @@
     <string name="zip_err_bad_local_header">Corrupted entry header</string>
     <string name="zip_err_bad_deflate">Corrupted compressed data</string>
     <string name="zip_err_unsupported_method">Unsupported compression method</string>
+    <string name="zip_err_zip64_missing">Entry is missing its ZIP64 extra field</string>
+    <string name="zip_err_range_unsupported">Server does not support Range requests — use another link or download locally</string>
+    <string name="zip_err_range_mismatch">Server returned a different byte range than requested — aborted</string>
+    <string name="zip_err_source_changed">Parsing target changed — reopen the file list</string>
     <string name="zip_err_generic">Operation failed</string>
     <string name="devices_updated">Device list updated</string>
 </resources>

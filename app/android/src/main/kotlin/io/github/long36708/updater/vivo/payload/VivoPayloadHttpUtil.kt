@@ -15,6 +15,14 @@ object VivoPayloadHttpUtil {
     private lateinit var fileName: String
     private var fileLength: Long = 0
     private var position: Long = 0
+    /**
+     * 每次 [init] 递增的会话号。
+     *
+     * 单例只有一个 url/fileLength，但 [ZipByteSource] 可能还持有上一次的条目数据。
+     * 会话号让这些过期的 source 能发现自己已失效，而不是把旧偏移读成新包的数据
+     * （表现为莫名的「条目头损坏」）。
+     */
+    private var session: Long = 0
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -24,6 +32,8 @@ object VivoPayloadHttpUtil {
     @Throws(IOException::class)
     suspend fun init(link: String) = withContext(Dispatchers.IO) {
         url = link
+        position = 0
+        session++
         runCatching {
             val request = Request.Builder()
                 .url(link)
@@ -31,16 +41,21 @@ object VivoPayloadHttpUtil {
                 .build()
 
             client.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    val contentRange = response.header("Content-Range")
-                    fileLength = contentRange?.split("/")?.get(1)?.trim()?.toLong()
-                        ?: response.header("Content-Length")?.toLong()
-                        ?: 0L
-                    fileName = getFileNameFromHeaders(link, response.header("Content-Disposition"))
-                    Log.i("VivoPayload", "http init OK: Content-Range=$contentRange, fileLength=$fileLength, fileName=$fileName")
-                } else {
-                    throw IOException("Failed to initialize HTTP request: ${response.code}")
+                // ADR-004 D4：只认 206。放过 200 会把「整包的第一段」当成请求区间，
+                // 上层无从察觉，最终表现为莫名其妙的字段错乱。
+                if (response.code != 206) {
+                    Log.w("VivoPayload", "http init: code=${response.code}, 服务器不支持 Range")
+                    throw IOException("RANGE_NOT_SUPPORTED")
                 }
+                // 总长只能取自 Content-Range（206 下 Content-Length 是片段长度）
+                val contentRange = response.header("Content-Range")
+                fileLength = contentRange?.substringAfter('/')?.trim()?.toLongOrNull() ?: 0L
+                if (fileLength <= 0) {
+                    Log.w("VivoPayload", "http init: Content-Range 缺失或非法: $contentRange")
+                    throw IOException("RANGE_NOT_SUPPORTED")
+                }
+                fileName = getFileNameFromHeaders(link, response.header("Content-Disposition"))
+                Log.i("VivoPayload", "http init OK: Content-Range=$contentRange, fileLength=$fileLength, fileName=$fileName")
             }
         }.onFailure { exception ->
             throw IOException("Failed to initialize HTTP request", exception)
@@ -48,6 +63,8 @@ object VivoPayloadHttpUtil {
     }
 
     fun length(): Long = fileLength
+
+    fun sessionId(): Long = session
 
     fun position(): Long = position
 
@@ -71,7 +88,31 @@ object VivoPayloadHttpUtil {
             val request = Request.Builder().url(url).addHeader("Range", rangeHeader).build()
 
             client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) throw IOException("Unexpected code ${response.code}")
+                // ADR-004 D4：只认 206。200 表示服务端忽略了 Range，
+                // 响应体是文件开头的数据，静默接受会让上层读到错位内容而不自知。
+                if (response.code != 206) {
+                    Log.w(
+                        "VivoPayload",
+                        "readSync: range=$rangeHeader code=${response.code} " +
+                            "Content-Range=${response.header("Content-Range")}"
+                    )
+                    throw IOException(
+                        if (response.code == 416) "RANGE_INVALID_OFFSET" else "RANGE_NOT_SUPPORTED"
+                    )
+                }
+                // 起点必须与请求一致，否则 Range 拼接会整体错位
+                val contentRange = response.header("Content-Range")
+                val start = contentRange
+                    ?.substringAfter(' ', "")
+                    ?.substringBefore('-')
+                    ?.toLongOrNull()
+                if (start != currentPosition) {
+                    Log.w(
+                        "VivoPayload",
+                        "readSync: 区间不符 want=$currentPosition got=$contentRange"
+                    )
+                    throw IOException("RANGE_MISMATCH")
+                }
                 val body = response.body ?: throw IOException("Empty response body")
                 val inputStream = body.byteStream()
                 val buffer = ByteArray(4 * 1024)

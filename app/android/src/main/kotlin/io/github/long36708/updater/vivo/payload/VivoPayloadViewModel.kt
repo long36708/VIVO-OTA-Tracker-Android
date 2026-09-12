@@ -58,6 +58,21 @@ class VivoPayloadViewModel : ViewModel() {
 
     private data class ZipLevel(val displayName: String, val source: ZipByteSource)
 
+    /**
+     * 当前 `_zipState.entries` 所属的解析目标。
+     *
+     * 条目的 localHeaderOffset 只对生成它的那个包有效。换链接后若沿用旧条目，
+     * 旧偏移会打到新包的字节上（甚至直接越界），表现为莫名其妙的「条目头损坏」。
+     */
+    private var zipSourceKey: String = ""
+
+    /** 丢弃「包内文件」的全部状态：条目、嵌套栈、预览、搜索词。 */
+    private fun resetZipBrowser() {
+        zipStack.clear()
+        zipSourceKey = ""
+        _zipState.value = ZipBrowserState()
+    }
+
     /** 输入框中的链接文本，供界面双向绑定。 */
     fun updateInputUrl(url: String) {
         _uiState.value = _uiState.value.copy(inputUrl = url)
@@ -164,6 +179,8 @@ class VivoPayloadViewModel : ViewModel() {
                 selectedPartitions = emptySet(),
                 selectedPartition = null
             )
+            // 重新解析即更换目标：包内文件列表属于上一个包，必须整体作废
+            resetZipBrowser()
             try {
                 Log.i("VivoPayload", "parseFromUrl: start, target=$target")
                 VivoPayloadHttpUtil.init(target)
@@ -223,6 +240,15 @@ class VivoPayloadViewModel : ViewModel() {
                 "该包的 payload.bin 是压缩存放，无法在线随机读取。请将 OTA 包下载到本地后再解析。"
             "TRUNCATED_READ" ->
                 "读取数据的过程中连接被中断，请检查网络后重试。"
+            // ADR-004 D4：服务器/网络问题要单独说清，不能让人以为包坏了
+            "RANGE_NOT_SUPPORTED", "RANGE_INVALID_OFFSET" ->
+                "该下载服务器不支持分段读取（Range），无法在线解析。请更换直链，或把 OTA 包下载到本地后再解析。"
+            "RANGE_MISMATCH" ->
+                "服务器返回的数据区间与请求不符，已中止解析。请重试或更换直链。"
+            "ZIP64_EXTRA_MISSING" ->
+                "包内条目缺少 ZIP64 扩展信息，无法定位数据。建议下载到本地后用其他工具解析。"
+            "SOURCE_CHANGED" ->
+                "解析目标已切换（链接被更换），请重新解析后再查看。"
             else -> raw ?: "解析失败，请重试"
         }
     }
@@ -288,13 +314,17 @@ class VivoPayloadViewModel : ViewModel() {
                 it.partitionName == partitionInfo.partitionName
             } ?: throw RuntimeException("Partition not found")
 
-            PayloadUtil.extractPartition(
-                partitionUpdate,
-                VivoPayloadHttpUtil,
-                tempDir.absolutePath,
-                payload
-            ) { progress ->
-                updateProgress(partitionInfo.partitionName, progress)
+            // 单例 HTTP 只有一个 position 游标：提取分区必须与 zip 浏览/解析互斥，
+            // 否则提取途中被预览改动游标，会静默读到错位数据（ADR-004 技术债 4）。
+            zipMutex.withLock {
+                PayloadUtil.extractPartition(
+                    partitionUpdate,
+                    VivoPayloadHttpUtil,
+                    tempDir.absolutePath,
+                    payload
+                ) { progress ->
+                    updateProgress(partitionInfo.partitionName, progress)
+                }
             }
 
             val saved = saveImageToDownloads(context, "${partitionInfo.partitionName}.img", tempFile)
@@ -349,6 +379,12 @@ class VivoPayloadViewModel : ViewModel() {
     fun loadZipEntries(context: Context) {
         viewModelScope.launch {
             zipMutex.withLock {
+                // 解析目标变了（换了链接）：旧条目一律作废，否则偏移会张冠李戴
+                val target = _uiState.value.pathOrUrl
+                if (zipSourceKey != target) {
+                    resetZipBrowser()
+                    zipSourceKey = target
+                }
                 if (_zipState.value.entries.isNotEmpty()) return@withLock
                 _zipState.value = _zipState.value.copy(isLoading = true, error = null)
                 try {
@@ -764,6 +800,11 @@ class VivoPayloadViewModel : ViewModel() {
             "BAD_LOCAL_HEADER" -> R.string.zip_err_bad_local_header
             "BAD_DEFLATE_DATA" -> R.string.zip_err_bad_deflate
             "UNSUPPORTED_ENTRY_METHOD" -> R.string.zip_err_unsupported_method
+            // ADR-004 D2/D4：把「解析/网络」问题与「包损坏」区分开
+            "ZIP64_EXTRA_MISSING" -> R.string.zip_err_zip64_missing
+            "RANGE_NOT_SUPPORTED", "RANGE_INVALID_OFFSET" -> R.string.zip_err_range_unsupported
+            "RANGE_MISMATCH" -> R.string.zip_err_range_mismatch
+            "SOURCE_CHANGED" -> R.string.zip_err_source_changed
             else -> R.string.zip_err_generic
         }
     }

@@ -36,11 +36,21 @@ interface ZipByteSource {
     suspend fun readAt(offset: Long, out: ByteArray): Int
 }
 
-/** 在线 OTA 包：委托给全局 HTTP 单例（单游标，调用方需串行化）。 */
+/**
+ * 在线 OTA 包：委托给全局 HTTP 单例（单游标，调用方需串行化）。
+ *
+ * 构造时快照「会话号 + 文件长度」：单例被 init 到别的链接后，本 source 立刻失效。
+ * 否则旧包条目的 localHeaderOffset 会被拿去读新包的字节，读出来既不是本地头、
+ * 长度对不上，还会被误报成「条目头损坏」——把状态污染说成数据损坏。
+ */
 class HttpByteSource(private val httpUtil: VivoPayloadHttpUtil) : ZipByteSource {
-    override val size: Long get() = httpUtil.length()
+    private val session = httpUtil.sessionId()
+    private val sessionLength = httpUtil.length()
+
+    override val size: Long get() = sessionLength
 
     override suspend fun readAt(offset: Long, out: ByteArray): Int {
+        if (httpUtil.sessionId() != session) throw IOException("SOURCE_CHANGED")
         httpUtil.seek(offset)
         var total = 0
         while (total < out.size) {
@@ -175,17 +185,34 @@ object VivoZipBrowser {
                 byteBuffer.position(byteBuffer.position() + 12)
 
                 if (byteBuffer.getInt().toUInt().toLong() == ZIP64_MAGICVAL) {
+                    // ZIP64：EOCD 里的 cenOffset 是占位符，真实值在 ZIP64 EOCD 里。
+                    // 解析完必须 break——继续回扫只可能与注释里的偶然字节误匹配，
+                    // 那样会拿到一段垃圾 cenOffset，把问题伪装成别的错误。
                     byteBuffer.position(endSigOffset - ZIP64_LOCHDR - 4)
-                    if (byteBuffer.getInt().toLong() == ZIP64_LOCSIG) {
+                    if (byteBuffer.getInt().toLong() != ZIP64_LOCSIG) {
+                        Log.w(TAG, "locateCentralDirectory: ZIP64 locator 签名不符")
+                    } else {
                         byteBuffer.position(byteBuffer.position() + 4)
                         val zip64EndSigOffset = byteBuffer.getLong()
-                        byteBuffer.position(byteArray.size - (fileLength - zip64EndSigOffset).toInt())
-                        if (byteBuffer.getInt().toLong() == ZIP64_ENDSIG) {
-                            byteBuffer.position(byteBuffer.position() + 36)
-                            cenSize = byteBuffer.getLong().toULong().toLong()
-                            cenOffset = byteBuffer.getLong().toULong().toLong()
+                        val tailIndex = byteArray.size - (fileLength - zip64EndSigOffset).toInt()
+                        if (tailIndex < 0 || tailIndex + 56 > byteArray.size) {
+                            Log.w(
+                                TAG,
+                                "locateCentralDirectory: ZIP64 EOCD @$zip64EndSigOffset " +
+                                    "不在尾部 ${byteArray.size} 字节缓冲内"
+                            )
+                        } else {
+                            byteBuffer.position(tailIndex)
+                            if (byteBuffer.getInt().toLong() != ZIP64_ENDSIG) {
+                                Log.w(TAG, "locateCentralDirectory: ZIP64 EOCD 签名不符")
+                            } else {
+                                byteBuffer.position(byteBuffer.position() + 36)
+                                cenSize = byteBuffer.getLong().toULong().toLong()
+                                cenOffset = byteBuffer.getLong().toULong().toLong()
+                            }
                         }
                     }
+                    break
                 } else {
                     byteBuffer.position(endSigOffset + 8)
                     cenSize = byteBuffer.getInt().toUInt().toLong()
@@ -242,6 +269,22 @@ object VivoZipBrowser {
                 }
                 if (localHeaderOffset == ZIP64_MAGICVAL && idx < fields.size) {
                     localHeaderOffset = fields[idx++]
+                }
+                // ADR-004 D2 兜底：extra 缺失或字段不足时，占位值 0xFFFFFFFF 会原样留下，
+                // 于是「数据偏移」落到 4 GB 附近，读到的自然不是 local header，
+                // 最终以「条目头损坏」这种把解析问题说成数据损坏的文案暴露。
+                // 这里剔除该条目并把真实原因写进日志。
+                if (compressedSize == ZIP64_MAGICVAL ||
+                    uncompressedSize == ZIP64_MAGICVAL ||
+                    localHeaderOffset == ZIP64_MAGICVAL
+                ) {
+                    Log.w(
+                        TAG,
+                        "parseCentralDirectory: skip '$name' — ZIP64 extra 未补齐 " +
+                            "(slots=${fields.size}, extraLen=${extra.size})"
+                    )
+                    buf.position(recordEnd)
+                    continue
                 }
             }
 
@@ -320,15 +363,43 @@ object VivoZipBrowser {
         source: ZipByteSource,
         entry: ZipEntryInfo
     ): Long {
+        // 防御：ZIP64 占位没被解析掉的条目不该走到这里（parseCentralDirectory 已剔除），
+        // 明确报解析问题，而不是让它变成含糊的「条目头损坏」。
+        if (entry.localHeaderOffset == ZIP64_MAGICVAL) {
+            Log.w(TAG, "readEntryDataOffset: '${entry.name}' 的 ZIP64 local header 偏移未解析")
+            throw IOException("ZIP64_EXTRA_MISSING")
+        }
         val available = source.size - entry.localHeaderOffset
-        if (available <= 0) throw IOException("BAD_LOCAL_HEADER")
+        if (available <= 0) {
+            Log.w(
+                TAG,
+                "readEntryDataOffset: '${entry.name}' lho=${entry.localHeaderOffset} " +
+                    "越界 (source.size=${source.size})"
+            )
+            throw IOException("BAD_LOCAL_HEADER")
+        }
         val readSize = minOf(LOCAL_HEADER_FIRST_READ_BYTES.toLong(), available).toInt()
         var header = ByteArray(readSize)
         var got = source.readAt(entry.localHeaderOffset, header)
-        if (got < 30) throw IOException("BAD_LOCAL_HEADER")
+        if (got < 30) {
+            Log.w(
+                TAG,
+                "readEntryDataOffset: '${entry.name}' lho=${entry.localHeaderOffset} " +
+                    "只读到 $got 字节（服务端返回空或被截断）"
+            )
+            throw IOException("BAD_LOCAL_HEADER")
+        }
 
         var buf = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
-        if (buf.int.toLong() != LOCSIG) throw IOException("BAD_LOCAL_HEADER")
+        if (buf.int.toLong() != LOCSIG) {
+            Log.w(
+                TAG,
+                "readEntryDataOffset: '${entry.name}' lho=${entry.localHeaderOffset} " +
+                    "首 4 字节=${header.take(4).joinToString("") { "%02x".format(it.toInt() and 0xFF) }}" +
+                    "（应为 504b0304）"
+            )
+            throw IOException("BAD_LOCAL_HEADER")
+        }
         // fileNameLength 在绝对偏移 26、extraFieldLength 在 28（LOCSIG 已消费 4 字节）
         val nameLen = buf.getShort(26).toUInt().toInt()
         val extraLen = buf.getShort(28).toUInt().toInt()
@@ -336,12 +407,21 @@ object VivoZipBrowser {
 
         // ADR-004 D5：首读 1KB 未覆盖完整头部时，按实际长度补读一次。
         if (dataOffset > got) {
-            if (dataOffset > available) throw IOException("BAD_LOCAL_HEADER")
+            if (dataOffset > available) {
+                Log.w(TAG, "readEntryDataOffset: '${entry.name}' dataOffset=$dataOffset 超出可用 $available")
+                throw IOException("BAD_LOCAL_HEADER")
+            }
             header = ByteArray(dataOffset)
             got = source.readAt(entry.localHeaderOffset, header)
-            if (got < dataOffset) throw IOException("BAD_LOCAL_HEADER")
+            if (got < dataOffset) {
+                Log.w(TAG, "readEntryDataOffset: '${entry.name}' 补读 local header 只拿到 $got/$dataOffset")
+                throw IOException("BAD_LOCAL_HEADER")
+            }
             buf = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
-            if (buf.int.toLong() != LOCSIG) throw IOException("BAD_LOCAL_HEADER")
+            if (buf.int.toLong() != LOCSIG) {
+                Log.w(TAG, "readEntryDataOffset: '${entry.name}' 补读后首 4 字节仍非 LOCSIG")
+                throw IOException("BAD_LOCAL_HEADER")
+            }
         }
 
         return entry.localHeaderOffset + dataOffset

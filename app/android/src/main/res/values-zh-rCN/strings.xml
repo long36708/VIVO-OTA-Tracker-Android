@@ -171,6 +171,10 @@
     <string name="zip_err_bad_local_header">条目头损坏</string>
     <string name="zip_err_bad_deflate">压缩数据损坏</string>
     <string name="zip_err_unsupported_method">不支持的压缩方式</string>
+    <string name="zip_err_zip64_missing">条目缺少 ZIP64 扩展信息，无法定位数据</string>
+    <string name="zip_err_range_unsupported">服务器不支持分段读取，无法在线解析，请更换直链或下载到本地</string>
+    <string name="zip_err_range_mismatch">服务器返回的数据区间与请求不符，已中止</string>
+    <string name="zip_err_source_changed">解析目标已切换，请返回后重新展开文件列表</string>
     <string name="zip_err_generic">操作失败</string>
     <string name="devices_updated">设备列表已更新</string>
 </resources>
