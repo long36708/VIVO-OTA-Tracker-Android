@@ -54,6 +54,28 @@ class HttpByteSource(private val httpUtil: VivoPayloadHttpUtil) : ZipByteSource 
     }
 }
 
+/**
+ * zip 内某个条目的数据区间，映射为独立 source。
+ *
+ * 用途：把「OTA zip 里的 payload.bin」表达成一个起点为 0 的连续字节流，
+ * 使 payload 头解析无需再关心它在 zip 中的绝对偏移（ADR-004 D3）。
+ */
+class SubrangeByteSource(
+    private val base: ZipByteSource,
+    private val baseOffset: Long,
+    override val size: Long,
+) : ZipByteSource {
+    override suspend fun readAt(offset: Long, out: ByteArray): Int {
+        if (offset < 0 || offset >= size) return 0
+        val want = minOf(out.size.toLong(), size - offset).toInt()
+        if (want == out.size) return base.readAt(baseOffset + offset, out)
+        val tmp = ByteArray(want)
+        val read = base.readAt(baseOffset + offset, tmp)
+        System.arraycopy(tmp, 0, out, 0, read)
+        return read
+    }
+}
+
 /** 嵌套 zip：内容已完整读出到内存。 */
 class MemoryByteSource(private val data: ByteArray) : ZipByteSource {
     override val size: Long get() = data.size.toLong()
@@ -74,10 +96,21 @@ object VivoZipBrowser {
     private const val ZIP64_MAGICVAL = 0xFFFFFFFFL
     private const val ZIP64_EXTRA_ID = 0x0001
 
+    private const val ENDSIG = 0x06054b50L
+    private const val ENDHDR = 22
+    private const val ZIP64_ENDSIG = 0x06064b50L
+    private const val ZIP64_LOCSIG = 0x07064b50L
+    private const val ZIP64_LOCHDR = 20
+
     /** central directory 异常膨胀时拒绝分配，避免 OOM。 */
     private const val MAX_CENTRAL_DIRECTORY_BYTES = 8L * 1024 * 1024
-    /** local header 读取上限。实测 vivo 的 extra field 可达数万字节。 */
-    private const val LOCAL_HEADER_READ_BYTES = 64 * 1024
+    /**
+     * local header 首读字节数（ADR-004 D5）。
+     * 实测 vivo 的 extra field 可达数万字节，但 99% 的包头部不足 1KB，
+     * 因此先读 1KB，不够再按 30+nameLen+extraLen 精确补读一次，
+     * 而不是无脑读 256KB——那是分区列表路径长期多花的流量。
+     */
+    private const val LOCAL_HEADER_FIRST_READ_BYTES = 1024
     /** 预览最多读取的压缩数据量，换出 8KB 明文通常绰绰有余。 */
     const val PREVIEW_INPUT_BYTES = 64 * 1024
 
@@ -104,7 +137,7 @@ object VivoZipBrowser {
             val tail = ByteArray(tailSize)
             source.readAt(fileLength - tailSize, tail)
 
-            val cen = PayloadUtil.locateCentralDirectory(tail, fileLength)
+            val cen = locateCentralDirectory(tail, fileLength)
             if (cen.offset < 0 || cen.size <= 0 || cen.size > MAX_CENTRAL_DIRECTORY_BYTES) {
                 throw IOException("NOT_A_VALID_ZIP")
             }
@@ -116,6 +149,53 @@ object VivoZipBrowser {
             Log.i(TAG, "listZipEntries: parsed ${entries.size} entries")
             entries
         }
+
+    /** A/B 增量包的 payload 条目名。OTA zip 中它普遍是第一个条目且为 STORED。 */
+    internal const val PAYLOAD_ENTRY_SUFFIX = "payload.bin"
+
+    internal fun findPayloadEntry(entries: List<ZipEntryInfo>): ZipEntryInfo? =
+        entries.firstOrNull { it.name.endsWith(PAYLOAD_ENTRY_SUFFIX) }
+
+    /**
+     * 在尾部缓冲里定位 central directory（ADR-004 D1：由 PayloadUtil 迁入，全库一份）。
+     *
+     * @param byteArray 文件尾部缓冲（当前实现固定 4KB，故若 zip 注释超过 4KB 会失败——
+     *                  实测 vivo 包注释为空，暂不引入更大回扫）
+     */
+    internal fun locateCentralDirectory(byteArray: ByteArray, fileLength: Long): FileInfo {
+        val byteBuffer = ByteBuffer.wrap(byteArray).order(ByteOrder.LITTLE_ENDIAN)
+        val offset = byteBuffer.capacity() - ENDHDR
+        var cenSize: Long = -1
+        var cenOffset: Long = -1
+
+        for (i in 0..byteBuffer.capacity() - ENDHDR) {
+            byteBuffer.position(offset - i)
+            if (byteBuffer.getInt().toLong() == ENDSIG) {
+                val endSigOffset = byteBuffer.position()
+                byteBuffer.position(byteBuffer.position() + 12)
+
+                if (byteBuffer.getInt().toUInt().toLong() == ZIP64_MAGICVAL) {
+                    byteBuffer.position(endSigOffset - ZIP64_LOCHDR - 4)
+                    if (byteBuffer.getInt().toLong() == ZIP64_LOCSIG) {
+                        byteBuffer.position(byteBuffer.position() + 4)
+                        val zip64EndSigOffset = byteBuffer.getLong()
+                        byteBuffer.position(byteArray.size - (fileLength - zip64EndSigOffset).toInt())
+                        if (byteBuffer.getInt().toLong() == ZIP64_ENDSIG) {
+                            byteBuffer.position(byteBuffer.position() + 36)
+                            cenSize = byteBuffer.getLong().toULong().toLong()
+                            cenOffset = byteBuffer.getLong().toULong().toLong()
+                        }
+                    }
+                } else {
+                    byteBuffer.position(endSigOffset + 8)
+                    cenSize = byteBuffer.getInt().toUInt().toLong()
+                    cenOffset = byteBuffer.getInt().toUInt().toLong()
+                    break
+                }
+            }
+        }
+        return FileInfo(cenOffset, cenSize)
+    }
 
     private fun parseCentralDirectory(bytes: ByteArray): List<ZipEntryInfo> {
         val entries = ArrayList<ZipEntryInfo>()
@@ -236,24 +316,34 @@ object VivoZipBrowser {
         inflateRaw(actualInput, maxOutputBytes)
     }
 
-    private suspend fun readEntryDataOffset(
+    internal suspend fun readEntryDataOffset(
         source: ZipByteSource,
         entry: ZipEntryInfo
     ): Long {
         val available = source.size - entry.localHeaderOffset
         if (available <= 0) throw IOException("BAD_LOCAL_HEADER")
-        val readSize = minOf(LOCAL_HEADER_READ_BYTES.toLong(), available).toInt()
-        val header = ByteArray(readSize)
-        source.readAt(entry.localHeaderOffset, header)
-        if (header.size < 30) throw IOException("BAD_LOCAL_HEADER")
+        val readSize = minOf(LOCAL_HEADER_FIRST_READ_BYTES.toLong(), available).toInt()
+        var header = ByteArray(readSize)
+        var got = source.readAt(entry.localHeaderOffset, header)
+        if (got < 30) throw IOException("BAD_LOCAL_HEADER")
 
-        val buf = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
+        var buf = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
         if (buf.int.toLong() != LOCSIG) throw IOException("BAD_LOCAL_HEADER")
         // fileNameLength 在绝对偏移 26、extraFieldLength 在 28（LOCSIG 已消费 4 字节）
         val nameLen = buf.getShort(26).toUInt().toInt()
         val extraLen = buf.getShort(28).toUInt().toInt()
         val dataOffset = 30 + nameLen + extraLen
-        if (dataOffset > header.size) throw IOException("BAD_LOCAL_HEADER")
+
+        // ADR-004 D5：首读 1KB 未覆盖完整头部时，按实际长度补读一次。
+        if (dataOffset > got) {
+            if (dataOffset > available) throw IOException("BAD_LOCAL_HEADER")
+            header = ByteArray(dataOffset)
+            got = source.readAt(entry.localHeaderOffset, header)
+            if (got < dataOffset) throw IOException("BAD_LOCAL_HEADER")
+            buf = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
+            if (buf.int.toLong() != LOCSIG) throw IOException("BAD_LOCAL_HEADER")
+        }
+
         return entry.localHeaderOffset + dataOffset
     }
 

@@ -168,12 +168,10 @@ class VivoPayloadViewModel : ViewModel() {
                 Log.i("VivoPayload", "parseFromUrl: start, target=$target")
                 VivoPayloadHttpUtil.init(target)
                 Log.i("VivoPayload", "parseFromUrl: http init done, fileLength=${VivoPayloadHttpUtil.length()}, fileName=${VivoPayloadHttpUtil.getFileName()}")
-                val payloadOffset = PayloadUtil.getPayloadOffset(target)
-                Log.i("VivoPayload", "parseFromUrl: payloadOffset=$payloadOffset")
+                // ADR-004 D1/D3：zip 解析统一走 ZipByteSource，不再用单例游标 + 固定 256KB 缓冲
                 val payload = PayloadUtil.initPayload(
                     VivoPayloadHttpUtil.getFileName(),
-                    VivoPayloadHttpUtil,
-                    payloadOffset
+                    HttpByteSource(VivoPayloadHttpUtil)
                 ).copy(sourcePath = target)
 
                 currentPayload = payload
@@ -220,6 +218,11 @@ class VivoPayloadViewModel : ViewModel() {
                 "这不是 A/B 增量包（payload.bin 不存在）。该 OTA 包可能是 recovery 全量包，无法用此工具解析。"
             "NOT_A_VALID_ZIP" ->
                 "链接指向的文件不是有效的 OTA zip。可能原因：链接不正确、文件不完整、服务器返回了错误页面（如 HTML 而非 zip），或文件需要登录才能访问。请检查链接是否指向直链下载地址。"
+            // ADR-004 D8：远程无法随机解压，必须给出可操作的提示
+            "PAYLOAD_NOT_STORED" ->
+                "该包的 payload.bin 是压缩存放，无法在线随机读取。请将 OTA 包下载到本地后再解析。"
+            "TRUNCATED_READ" ->
+                "读取数据的过程中连接被中断，请检查网络后重试。"
             else -> raw ?: "解析失败，请重试"
         }
     }
