@@ -109,6 +109,7 @@
     <string name="payload_full">पूर्ण</string>
     <string name="payload_incremental">वृद्धिशील</string>
     <string name="payload_block_size">ब्लॉक आकार</string>
+    <string name="payload_read_traffic">पढ़ा गया डेटा</string>
     <string name="payload_partial_update">आंशिक अपडेट</string>
     <string name="payload_yes">हाँ</string>
     <string name="payload_select_all">सभी चुनें</string>

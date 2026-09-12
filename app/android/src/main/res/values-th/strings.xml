@@ -109,6 +109,7 @@
     <string name="payload_full">แบบเต็ม</string>
     <string name="payload_incremental">แบบเพิ่มส่วน</string>
     <string name="payload_block_size">ขนาดบล็อก</string>
+    <string name="payload_read_traffic">ข้อมูลที่อ่าน</string>
     <string name="payload_partial_update">อัปเดตบางส่วน</string>
     <string name="payload_yes">ใช่</string>
     <string name="payload_select_all">เลือกทั้งหมด</string>

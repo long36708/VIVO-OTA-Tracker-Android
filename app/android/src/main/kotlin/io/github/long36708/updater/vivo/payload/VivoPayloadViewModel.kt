@@ -59,6 +59,23 @@ class VivoPayloadViewModel : ViewModel() {
     private data class ZipLevel(val displayName: String, val source: ZipByteSource)
 
     /**
+     * 当前解析目标的根字节源（ADR-004 D6）。
+     *
+     * 分区列表解析与「包内文件」共用同一个带块缓存的 source，使尾部 EOCD 与
+     * central directory 在一次会话里只读一次；换链接时必须重建，否则旧偏移
+     * 会打到新包的字节上。
+     */
+    private var rootSource: ZipByteSource? = null
+
+    /** 取（必要时创建）当前目标的根源，保证分区解析与 zip 浏览共享缓存。 */
+    private fun acquireRootSource(): ZipByteSource {
+        rootSource?.let { return it }
+        val created = CachingByteSource(HttpByteSource(VivoPayloadHttpUtil))
+        rootSource = created
+        return created
+    }
+
+    /**
      * 当前 `_zipState.entries` 所属的解析目标。
      *
      * 条目的 localHeaderOffset 只对生成它的那个包有效。换链接后若沿用旧条目，
@@ -70,6 +87,7 @@ class VivoPayloadViewModel : ViewModel() {
     private fun resetZipBrowser() {
         zipStack.clear()
         zipSourceKey = ""
+        rootSource = null
         _zipState.value = ZipBrowserState()
     }
 
@@ -179,16 +197,20 @@ class VivoPayloadViewModel : ViewModel() {
                 selectedPartitions = emptySet(),
                 selectedPartition = null
             )
-            // 重新解析即更换目标：包内文件列表属于上一个包，必须整体作废
+            // 重新解析即更换目标：包内文件列表属于上一个包，必须整体作废。
+            // 之后把 zipSourceKey 认到当前 target，使稍后展开「包内文件」时
+            // 不会再次 reset，从而复用本次解析建立的块缓存（ADR-004 D6）。
             resetZipBrowser()
+            zipSourceKey = target
             try {
                 Log.i("VivoPayload", "parseFromUrl: start, target=$target")
                 VivoPayloadHttpUtil.init(target)
                 Log.i("VivoPayload", "parseFromUrl: http init done, fileLength=${VivoPayloadHttpUtil.length()}, fileName=${VivoPayloadHttpUtil.getFileName()}")
                 // ADR-004 D1/D3：zip 解析统一走 ZipByteSource，不再用单例游标 + 固定 256KB 缓冲
+                // ADR-004 D6：与「包内文件」共用带块缓存的根源，central directory 只读一次
                 val payload = PayloadUtil.initPayload(
                     VivoPayloadHttpUtil.getFileName(),
-                    HttpByteSource(VivoPayloadHttpUtil)
+                    acquireRootSource()
                 ).copy(sourcePath = target)
 
                 currentPayload = payload
@@ -206,11 +228,16 @@ class VivoPayloadViewModel : ViewModel() {
                     minorVersion = manifest.minorVersion
                 )
 
+                // ADR-004 D9：把实际流量摆给用户看，证明「没有下载整包」
+                val trafficBytes = VivoPayloadHttpUtil.bytesRead()
+                Log.i("VivoPayload", "parseFromUrl: 本次读取流量 ${trafficBytes}B (包体 ${payload.archiveSize}B)")
+
                 _uiState.value = _uiState.value.copy(
                     archiveInfo = archiveInfo,
                     partitions = partitionList,
                     filteredPartitions = partitionList,
-                    isParsing = false
+                    isParsing = false,
+                    readTrafficBytes = trafficBytes
                 )
             } catch (e: Exception) {
                 val msg = mapErrorMessage(e.message)
@@ -249,6 +276,9 @@ class VivoPayloadViewModel : ViewModel() {
                 "包内条目缺少 ZIP64 扩展信息，无法定位数据。建议下载到本地后用其他工具解析。"
             "SOURCE_CHANGED" ->
                 "解析目标已切换（链接被更换），请重新解析后再查看。"
+            // ADR-004 D7：重试 3 次仍失败，说明是网络而不是包的问题
+            "NETWORK_ERROR" ->
+                "网络请求失败（已自动重试 3 次）。请检查网络后重试，或换一个时间再试。"
             else -> raw ?: "解析失败，请重试"
         }
     }
@@ -391,7 +421,7 @@ class VivoPayloadViewModel : ViewModel() {
                     val rootName = VivoPayloadHttpUtil.getFileName()
                         .ifBlank { "ota.zip" }
                     zipStack.clear()
-                    zipStack.addLast(ZipLevel(rootName, HttpByteSource(VivoPayloadHttpUtil)))
+                    zipStack.addLast(ZipLevel(rootName, acquireRootSource()))
                     val entries = VivoZipBrowser.listZipEntries(zipStack.last().source)
                     _zipState.value = _zipState.value.copy(
                         entries = entries,

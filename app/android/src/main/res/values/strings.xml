@@ -130,6 +130,7 @@
     <string name="payload_full">Full</string>
     <string name="payload_incremental">Incremental</string>
     <string name="payload_block_size">Block size</string>
+    <string name="payload_read_traffic">Network read</string>
     <string name="payload_partial_update">Partial update</string>
     <string name="payload_yes">Yes</string>
     <string name="payload_select_all">Select all</string>

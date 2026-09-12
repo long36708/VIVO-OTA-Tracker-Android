@@ -109,6 +109,7 @@
     <string name="payload_full">Penuh</string>
     <string name="payload_incremental">Inkremental</string>
     <string name="payload_block_size">Ukuran blok</string>
+    <string name="payload_read_traffic">Data yang dibaca</string>
     <string name="payload_partial_update">Pembaruan sebagian</string>
     <string name="payload_yes">Ya</string>
     <string name="payload_select_all">Pilih semua</string>

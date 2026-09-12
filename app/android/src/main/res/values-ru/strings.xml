@@ -109,6 +109,7 @@
     <string name="payload_full">Полный</string>
     <string name="payload_incremental">Инкрементальный</string>
     <string name="payload_block_size">Размер блока</string>
+    <string name="payload_read_traffic">Прочитано из сети</string>
     <string name="payload_partial_update">Частичное обновление</string>
     <string name="payload_yes">Да</string>
     <string name="payload_select_all">Выбрать все</string>

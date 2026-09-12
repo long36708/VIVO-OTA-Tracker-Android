@@ -58,7 +58,9 @@ data class PayloadDumperUiState(
     val isParsing: Boolean = false,
     val isExtracting: Boolean = false,
     val error: String? = null,
-    val selectedPartition: PartitionInfo? = null
+    val selectedPartition: PartitionInfo? = null,
+    /** 本次解析实际从网络读取的字节数（ADR-004 D9），0 表示未统计。 */
+    val readTrafficBytes: Long = 0
 )
 
 sealed class PayloadToast {

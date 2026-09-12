@@ -109,6 +109,7 @@
     <string name="payload_full">전체</string>
     <string name="payload_incremental">증분</string>
     <string name="payload_block_size">블록 크기</string>
+    <string name="payload_read_traffic">이번 읽기 트래픽</string>
     <string name="payload_partial_update">부분 업데이트</string>
     <string name="payload_yes">예</string>
     <string name="payload_select_all">모두 선택</string>

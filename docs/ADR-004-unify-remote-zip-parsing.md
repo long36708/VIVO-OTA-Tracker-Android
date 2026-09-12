@@ -177,8 +177,12 @@ zip bomb 防护与更严的目录上限，VioletToolBox 提供了本仓库缺的
 | 阶段 | 状态 | 说明 |
 |------|------|------|
 | P0 | ✅ 已完成（2026-09-12） | `SubrangeByteSource`；分区定位改走 `listZipEntries` + `readEntryDataOffset`；删 256 KB 固定读与两处调试探针；STORED 校验；`locateCentralDirectory` 由 `PayloadUtil` 迁入 `VivoZipBrowser` |
-| P1 | ⬜ 未开始 | 206 强校验 + `RANGE_NOT_SUPPORTED` 文案 |
-| P2 | ⬜ 未开始 | 块缓存、重试退避、流量统计 |
+| P1 | ✅ 已完成 | `VivoPayloadHttpUtil.init` 与 `readSync` 均强制 206；总长只取 `Content-Range`（不再回退 `Content-Length`）；新增 `RANGE_NOT_SUPPORTED` / `RANGE_INVALID_OFFSET`(416) / `RANGE_MISMATCH`(区间起点不符) / `SOURCE_CHANGED`(会话号) 标记，双通道文案（`mapErrorMessage` 与 `mapZipErrorRes`）齐备 |
+| P2 | ✅ 已完成（2026-09-12） | `CachingByteSource`（1 MB × 4 LRU，>4 MB 直通）；`VivoPayloadHttpUtil` 失败分类 + 重试退避（3 次、`Retry-After` 优先、封顶 4 s）；`bytesRead()` 会话流量并在 ROM 信息卡展示（10 语言） |
+
+> P1 实际实现范围**超出**本 ADR 的要求：除 206 强校验外，还增补了
+> `Content-Range` 起点校验（防 Range 拼接错位）、416 区分、以及 `sessionId()` 会话号
+> （防止 `ZipByteSource` 持有上一次的条目数据把旧偏移读成新包内容）。
 
 **离线验证**：`verify_adr004_payload_locate.py`（8/8 通过），对照 OLD/NEW 两组同构实现：
 
@@ -190,8 +194,22 @@ zip bomb 防护与更严的目录上限，VioletToolBox 提供了本仓库缺的
 | payload.bin 为 DEFLATE | NEW 明确抛 `PAYLOAD_NOT_STORED` |
 | 无 payload.bin（recovery 包） | 两组均 `NOT_A_PAYLOAD_ZIP` |
 
-**待真机验证**：验收标准 4（改造前后分区列表逐项一致）——需用同一 vivo 直链对比
-分区名 / size / rawSize / sha256，以及 `adb logcat | grep VivoPayload` 核对请求次数。
+**离线验证**：`verify_adr004_p2.py`（17/17 通过），覆盖重试分类与块缓存：
+
+| 用例 | 结果 |
+|------|------|
+| 429 / 503 可重试 | ✅ 不再误报成「服务器不支持分段读取」 |
+| `Retry-After: 2` | 采纳为 2000 ms 等待 |
+| 连续 5xx 重试耗尽 | 收敛为 `NETWORK_ERROR`（并独立文案） |
+| 200（Range 被忽略） | **只请求一次**，直接抛 `RANGE_NOT_SUPPORTED` |
+| 416 | `RANGE_INVALID_OFFSET` |
+| 退避序列 | 450 / 900 / 1800 ms，封顶 4000 ms |
+| 同块重复读 | 底层只请求一次 |
+| 跨块读 / >4 MB 直通 / LRU 上限 4 块 / 命中续期 | 均符合预期 |
+
+**待真机验证**：验收标准 1、2、4——需用同一 vivo 直链对比
+分区名 / size / rawSize / sha256 是否逐项一致；`adb logcat | grep VivoPayload` 核对
+请求次数（应 ≤6）；先解析再展开「包内文件」时 central directory 应命中缓存不再重复请求。
 
 ## 风险与回滚
 

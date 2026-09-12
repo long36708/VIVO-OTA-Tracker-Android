@@ -306,6 +306,13 @@ fun PayloadDumperScreen(
                                         "${archiveInfo.blockSize} B"
                                     )
                                 }
+                                // ADR-004 D9：本次解析真实抓取的字节数，证明「没有下载整包」
+                                if (uiState.readTrafficBytes > 0) {
+                                    InfoRow(
+                                        stringResource(R.string.payload_read_traffic),
+                                        formatFileSize(uiState.readTrafficBytes)
+                                    )
+                                }
                                 if (archiveInfo.partialUpdate) {
                                     InfoRow(
                                         stringResource(R.string.payload_partial_update),

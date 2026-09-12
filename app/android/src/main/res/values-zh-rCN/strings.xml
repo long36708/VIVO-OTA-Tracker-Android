@@ -125,6 +125,7 @@
     <string name="payload_full">全量包</string>
     <string name="payload_incremental">增量包</string>
     <string name="payload_block_size">块大小</string>
+    <string name="payload_read_traffic">本次读取流量</string>
     <string name="payload_partial_update">部分更新</string>
     <string name="payload_yes">是</string>
     <string name="payload_select_all">全选</string>
